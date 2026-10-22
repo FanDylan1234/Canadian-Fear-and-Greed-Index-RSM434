@@ -12,7 +12,7 @@ import unittest
 
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 from data_checks import check_history
-from pull_bloomberg import test_spec, run_checks, BloombergClient
+from pull_bloomberg import test_spec, run_checks, BloombergClient, normalize_security, candidate_pairs
 
 def rows(start,end,value=20):
     result=[]
@@ -40,6 +40,32 @@ class FakeClient:
         self.closed=True
 
 class Checks(unittest.TestCase):
+    def test_lookup_parsekeys_are_normalized(self):
+        self.assertEqual(normalize_security("SPTSXDCL<index>"),"SPTSXDCL Index")
+        self.assertEqual(normalize_security("/ticker/SPTSX Index"),"SPTSX Index")
+        self.assertEqual(normalize_security("SPTSXADV<INDEX>"),"SPTSXADV Index")
+
+    def test_breadth_rejects_accounting_fields_and_volume_or_net_indices(self):
+        class SearchClient(FakeClient):
+            def fields(self,query):
+                return [
+                    {"field":"ARD_ADVANCE_COLLECTIONS","description":"Advance collections"},
+                    {"field":"ARD_CAPITAL_ADVANCE_GRANTS","description":"Advance grants"},
+                    {"field":"NUM_MEMBERS_ADVANCING","description":"Number of members advancing"},
+                ]
+            def instruments(self,query):
+                return [
+                    {"security":"STSXVOLD<index>","description":"TSX Declining Volume"},
+                    {"security":"STSXAD<index>","description":"TSX Advance Decline Line"},
+                    {"security":"SPTSXDCL<index>","description":"S&P/TSX Declining Issues"},
+                ]
+        result={}
+        spec={"security":"SPTSX Index","kind":"count","field_search":"advancing",
+              "field_terms":["advanc"],"instrument_search":"TSX declining",
+              "instrument_pattern":"(?i)declin"}
+        pairs=candidate_pairs(SearchClient(),spec,result)
+        self.assertEqual(pairs,[("SPTSXDCL Index","PX_LAST"),("SPTSX Index","NUM_MEMBERS_ADVANCING")])
+
     def test_late_history_and_missing_internal_period_are_flagged(self):
         data=rows("2010-03-01","2010-12-31")
         data=[r for r in data if not "2010-06-01"<=r["date"]<="2010-07-01"]

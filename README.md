@@ -81,7 +81,7 @@ The Bloomberg script returns nonzero in a shell if any dataset still needs revie
 - Public Python run on October 22, 2026: FRED VIX and Canada 10-year yield from January 4, 2010 through October 21, 2026; Montreal equity put/call from January 4, 2011 through October 20, 2026 (3,963 numeric observations); VIXI snapshot PARTIAL.
 - User's Bloomberg lab run: `SPTSX Index / PX_LAST` returned 4,217 observations, January 4, 2010 through October 22, 2026. This is user-provided console evidence, not an independently rerun terminal pull.
 - The combined runner was executed here: public PASS=3, snapshot PARTIAL=1, Bloomberg BLOCKED=10 because this execution environment lacks `blpapi`. The user's lab already connected successfully.
-- Seven offline tests passed: historical range/gaps, VIXC cessation, count validity, candidate review status, failure isolation/session cleanup, and Bloomberg response date/null/error parsing. These tests do not confirm live Bloomberg search schemas, entitlements or candidate mappings.
+- Initial seven offline tests passed: historical range/gaps, VIXC cessation, count validity, candidate review status, failure isolation/session cleanup, and Bloomberg response date/null/error parsing. These tests do not confirm live Bloomberg search schemas, entitlements or candidate mappings.
 
 ```sh
 python -m unittest discover -s tests -v
@@ -102,3 +102,11 @@ Oct 25: team plan and data access. Nov 8: progress update. Nov 20: project evalu
 - Bloomberg index/API and S&P methodology references are listed in [data requirements](docs/data-requirements.md).
 
 October 22, 2026: ChatGPT/Codex drafted the access scripts and documentation, reread both PDFs, tested public access and offline checks, and added Bloomberg candidate discovery. User independently tested the TSX price pull on the lab terminal. Remaining Bloomberg candidates need a lab run and definition review. Preserve this disclosure for the course AI-use appendix.
+
+## Latest lab checkpoint and discovery fix
+
+User-provided October 22 console output: Bloomberg returned TSX price, TSX total return, new 52-week highs/lows, both VIXC and VIXI, Canadian IG corporate OAS, and Canadian aggregate bond total return. Eight of ten Bloomberg datasets downloaded; seven remain REVIEW for definition and/or coverage. Advancing and declining issue counts failed.
+
+Two discovered code defects were corrected: normalize security-lookup tags such as `SPTSXDCL<index>` into `SPTSXDCL Index`, and reject accounting "advance" fields plus obvious volume/net/cumulative breadth instruments. Exchange count instruments now precede member-count field alternatives. Invalid non-integer/negative count candidates are rejected before selecting a result. Two regression tests cover the observed failures (nine offline tests total).
+
+These changes still require a new live lab run. New-high/low repeated values can be legitimate zeros; VIXC also contains a long repeated-value run and ends January 22, 2020 in the uploaded output. Flags remain visible until the raw histories and metadata are reviewed. Upload `bloomberg-report.json` for the next definition review; the console log does not contain the full vendor metadata.

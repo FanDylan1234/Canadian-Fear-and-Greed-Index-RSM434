@@ -13,6 +13,36 @@ import sys
 import time
 from data_checks import ROOT, yesterday, check_history, show_result, save_report
 
+
+def normalize_security(security):
+    """Security lookup uses yellow-key tags; historical requests need parsekeys."""
+    security=security.strip().removeprefix("/ticker/")
+    security=re.sub(r"\s*<index>\s*$"," Index",security,flags=re.I)
+    return security
+
+def eligible_field(spec, item):
+    text=(item.get("field","")+" "+item.get("description","")).lower()
+    if not all(term.lower() in text for term in spec.get("field_terms",[])):
+        return False
+    if spec.get("kind")!="count":
+        return True
+    if re.search(r"percent|percentage|ratio|pct|volume|average|payment|grant|collection|account|covid",text):
+        return False
+    # A mere occurrence of "advance" is not evidence of market breadth.
+    return bool(re.search(r"\b(issues?|members?|stocks?|securities)\b",text.replace("_"," ")))
+
+def eligible_instrument(spec,item):
+    text=normalize_security(item.get("security",""))+" "+item.get("description","")
+    if not re.search(r"TSX|Toronto",text,re.I):
+        return False
+    if not re.search(spec.get("instrument_pattern","."),text):
+        return False
+    if spec.get("kind")=="count" and re.search(
+            r"volume|\bvol\b|VOLD|VOLU|ratio|percent|cumulative|advance.?decline|advances?.?(and|/)?.?declines?|\bnet\b|\bline\b",text,re.I):
+        return False
+    return True
+
+
 class BloombergClient:
     def __init__(self):
         import blpapi
@@ -94,7 +124,7 @@ class BloombergClient:
             for msg in self.request("//blp/instruments","instrumentListRequest",
                                     {"query":query,"yellowKeyFilter":"YK_FILTER_INDX","maxResults":20}):
                 for item in msg.get("results",[]):
-                    security=item.get("security","").removeprefix("/ticker/")
+                    security=normalize_security(item.get("security",""))
                     matches.append(dict(security=security,description=item.get("description","")))
             self.cache[key]=matches
         return self.cache[key]
@@ -142,22 +172,20 @@ class BloombergClient:
         return rows
 
 def candidate_pairs(client, spec, result):
-    pairs=[]
+    declared=[]
+    fields=[]
+    instruments=[]
     if spec.get("security") and spec.get("field"):
-        pairs.append((spec["security"],spec["field"]))
+        declared.append((normalize_security(spec["security"]),spec["field"]))
     for field in spec.get("fields",[]):
-        pairs.append((spec["security"],field))
-    # Field discovery is especially important for breadth: no invented mnemonics.
+        declared.append((normalize_security(spec["security"]),field))
     if spec.get("field_search"):
         try:
             matches=client.fields(spec["field_search"])
             result["field_search_results"]=matches
             for item in matches:
-                text=(item["field"]+" "+item["description"]).lower()
-                if all(term.lower() in text for term in spec.get("field_terms",[])):
-                    if spec.get("kind")=="count" and re.search(r"percent|percentage|ratio|pct|volume",text):
-                        continue
-                    pairs.append((spec["security"],item["field"]))
+                if eligible_field(spec,item):
+                    fields.append((normalize_security(spec["security"]),item["field"]))
         except Exception as exc:
             result["field_search_error"]=str(exc)
     if spec.get("instrument_search"):
@@ -165,16 +193,15 @@ def candidate_pairs(client, spec, result):
             matches=client.instruments(spec["instrument_search"])
             result["instrument_search_results"]=matches
             for item in matches:
-                text=item["security"]+" "+item["description"]
-                if not re.search(r"TSX|Toronto",text,re.I):
-                    continue
-                if re.search(spec.get("instrument_pattern","."),text):
-                    pairs.append((item["security"],"PX_LAST"))
+                if eligible_instrument(spec,item):
+                    instruments.append((normalize_security(item["security"]),"PX_LAST"))
         except Exception as exc:
             result["instrument_search_error"]=str(exc)
-    unique=list(dict.fromkeys(pairs))
-    # Prefer declared candidate mappings. Discovery results remain suggestions.
-    return unique[:4]
+    # Exchange count instruments precede Composite-member fields, avoiding a full
+    # candidate budget consumed by generic or inappropriate field search results.
+    pairs=declared+(instruments+fields if spec.get("kind")=="count" else fields+instruments)
+    return list(dict.fromkeys(pairs))[:4]
+
 
 def test_spec(client, spec, start, end, output):
     result=dict(id=spec["id"],definition=spec.get("definition",""),attempts=[])
@@ -203,6 +230,8 @@ def test_spec(client, spec, start, end, output):
                 print("    No recent sample; pulling full window to check for older/stale history.",flush=True)
             rows=client.history(security,field,required_start,required_end)
             coverage=check_history(rows,spec,start,end)
+            if "COUNTS_NOT_NONNEGATIVE_INTEGERS" in coverage.get("issues",[]):
+                raise RuntimeError("Candidate is not a nonnegative integer count; trying another mapping.")
             if coverage["numeric_rows"]==0:
                 raise RuntimeError("No numeric observations in required window")
             safe_id=spec["id"]

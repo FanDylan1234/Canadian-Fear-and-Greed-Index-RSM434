@@ -30,7 +30,7 @@
     "kind": "count",
     "security": "SPTSX Index",
     "fields": [],
-    "field_search": "advancing issues",
+    "field_search": "number members advancing",
     "field_terms": [
       "advanc"
     ],
@@ -46,7 +46,7 @@
     "kind": "count",
     "security": "SPTSX Index",
     "fields": [],
-    "field_search": "declining issues",
+    "field_search": "number members declining",
     "field_terms": [
       "declin"
     ],
