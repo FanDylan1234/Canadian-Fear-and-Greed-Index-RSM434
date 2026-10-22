@@ -34,8 +34,8 @@ Checks include response status, expected schema, non-empty numeric observations,
 |---|---|---|
 | US VIX | FRED VIXCLS | PASS: 4,259 numeric daily observations, Jan 4, 2010-Oct 21, 2026; 124 blank observations retained in raw CSV |
 | Canada 10-year benchmark yield | Bank of Canada Valet | PASS: 4,194 numeric daily observations, Jan 4, 2010-Oct 21, 2026 |
-| Canadian equity options put/call ratio | Montr�al Exchange CSV | PASS: 3,961 observations, Jan 4, 2011-Oct 16, 2026; last available observation is six calendar days old |
-| Canadian implied volatility | Montr�al Exchange VIXI chart JSON | PARTIAL: current-day intraday points download; this is not historical daily coverage |
+| Canadian equity options put/call ratio | Montreal Exchange CSV | PASS: 3,961 observations, Jan 4, 2011-Oct 16, 2026; last available observation is six calendar days old |
+| Canadian implied volatility | Montreal Exchange VIXI chart JSON | PARTIAL: current-day intraday points download; this is not historical daily coverage |
 | TSX price and total-return index | Bloomberg | NOT TESTED: needs an entitled session and confirmed security/field mappings |
 | TSX advancing/declining issues and 52-week highs/lows | Bloomberg | NOT TESTED: same access requirement |
 | Historical VIXC / VIXI | Bloomberg | NOT TESTED: preserve the assignment's Jan 2020-Apr 2021 transition gap |
@@ -101,8 +101,8 @@ Assignment references supplied by the user:
 Data and API references:
 - [FRED VIXCLS](https://fred.stlouisfed.org/series/VIXCLS), source: Chicago Board Options Exchange; [CSV download](https://fred.stlouisfed.org/graph/fredgraph.csv?id=VIXCLS&cosd=2010-01-01).
 - [Bank of Canada Valet documentation](https://www.bankofcanada.ca/valet/docs/); series `BD.CDN.10YR.DQ.YLD`.
-- [Montr�al Exchange put/call ratios](https://www.m-x.ca/en/trading/data/put-call-ratios); [equity CSV](https://www.m-x.ca/files/ratio-equity.csv).
-- [Montr�al Exchange homepage](https://www.m-x.ca/); its chart loads [VIXI JSON](https://www.m-x.ca/files/json/vixi.json). This is an observed website endpoint, not a promised historical API.
+- [Montreal Exchange put/call ratios](https://www.m-x.ca/en/trading/data/put-call-ratios); [equity CSV](https://www.m-x.ca/files/ratio-equity.csv).
+- [Montreal Exchange homepage](https://www.m-x.ca/); its chart loads [VIXI JSON](https://www.m-x.ca/files/json/vixi.json). This is an observed website endpoint, not a promised historical API.
 - [Bloomberg API Library](https://professional.bloomberg.com/support/api-library/) and [Core Developer Guide](https://data.bloomberglp.com/professional/sites/10/2017/03/BLPAPI-Core-Developer-Guide.pdf).
 
 Keep downloaded vendor data out of Git. Confirm source usage/redistribution permissions before publishing data. Assignment PDFs are not included in the repository starter.
