@@ -1,0 +1,9 @@
+data-access-results/
+my-access-results/
+.env
+.env.*
+!.env.example
+.venv/
+__pycache__/
+*.pyc
+node_modules/

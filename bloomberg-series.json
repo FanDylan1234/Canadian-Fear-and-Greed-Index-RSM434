@@ -1,0 +1,52 @@
+[
+  {
+    "id": "tsx_price",
+    "security": null,
+    "field": null
+  },
+  {
+    "id": "tsx_total_return",
+    "security": null,
+    "field": null
+  },
+  {
+    "id": "tsx_advancing",
+    "security": null,
+    "field": null
+  },
+  {
+    "id": "tsx_declining",
+    "security": null,
+    "field": null
+  },
+  {
+    "id": "tsx_52week_highs",
+    "security": null,
+    "field": null
+  },
+  {
+    "id": "tsx_52week_lows",
+    "security": null,
+    "field": null
+  },
+  {
+    "id": "canada_vixc_history",
+    "security": null,
+    "field": null
+  },
+  {
+    "id": "canada_vixi_history",
+    "security": null,
+    "field": null
+  },
+  {
+    "id": "canada_ig_credit_spread",
+    "security": null,
+    "field": null
+  },
+  {
+    "id": "canada_bond_total_return",
+    "security": null,
+    "field": null
+  }
+]

@@ -1,0 +1,107 @@
+{
+  "tested_at_utc": "2026-10-22T16:41:15.431Z",
+  "requested_start": "2010-01-01",
+  "scope": "Data retrieval only. No scoring, index, backtest, or evaluation.",
+  "results": [
+    {
+      "id": "fred_vix",
+      "status": "PASS",
+      "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=VIXCLS&cosd=2010-01-01",
+      "http_status": 200,
+      "rows": 4383,
+      "numeric_rows": 4259,
+      "missing_rows": 124,
+      "duplicate_dates": 0,
+      "first_date": "2010-01-04",
+      "last_date": "2026-10-21",
+      "frequency": "daily",
+      "begins_near_requested_start": true,
+      "calendar_days_since_last": 1,
+      "note": "US VIX benchmark / explicitly labelled possible fallback, not Canadian volatility."
+    },
+    {
+      "id": "boc_canada_10y",
+      "status": "PASS",
+      "url": "https://www.bankofcanada.ca/valet/observations/BD.CDN.10YR.DQ.YLD/json?start_date=2010-01-01",
+      "http_status": 200,
+      "rows": 4194,
+      "numeric_rows": 4194,
+      "missing_rows": 0,
+      "duplicate_dates": 0,
+      "first_date": "2010-01-04",
+      "last_date": "2026-10-21",
+      "frequency": "daily",
+      "begins_near_requested_start": true,
+      "calendar_days_since_last": 1,
+      "note": "Government of Canada benchmark yield; a yield series is NOT a bond total-return series."
+    },
+    {
+      "id": "mx_equity_put_call",
+      "status": "PASS",
+      "url": "https://www.m-x.ca/files/ratio-equity.csv",
+      "http_status": 200,
+      "rows": 3961,
+      "numeric_rows": 3961,
+      "missing_rows": 0,
+      "duplicate_dates": 0,
+      "first_date": "2011-01-04",
+      "last_date": "2026-10-16",
+      "frequency": "daily",
+      "begins_near_requested_start": false,
+      "calendar_days_since_last": 6,
+      "note": "Equity options only. Source begins in 2011; no 2010 observations are invented."
+    },
+    {
+      "id": "mx_vixi_snapshot",
+      "status": "PARTIAL",
+      "url": "https://www.m-x.ca/files/json/vixi.json",
+      "http_status": 200,
+      "rows": 370,
+      "numeric_rows": 370,
+      "missing_rows": 0,
+      "duplicate_dates": 0,
+      "first_date": "2026-10-22T13:35:00.000Z",
+      "last_date": "2026-10-22T16:39:30.000Z",
+      "frequency": "intraday snapshot",
+      "begins_near_requested_start": false,
+      "calendar_days_since_last": 0,
+      "note": "Public chart feed only. Does not establish historical daily VIXI/VIXC access or fill the 2020-21 gap."
+    },
+    {
+      "id": "bloomberg_tsx_price",
+      "status": "NOT_TESTED",
+      "note": "Requires verified security/field mapping and an entitled Bloomberg Desktop API session. Run pull_bloomberg.py on the lab terminal. A TCP probe is not a successful data pull."
+    },
+    {
+      "id": "bloomberg_tsx_total_return",
+      "status": "NOT_TESTED",
+      "note": "Requires verified security/field mapping and an entitled Bloomberg Desktop API session. Run pull_bloomberg.py on the lab terminal. A TCP probe is not a successful data pull."
+    },
+    {
+      "id": "bloomberg_tsx_advancing_declining",
+      "status": "NOT_TESTED",
+      "note": "Requires verified security/field mapping and an entitled Bloomberg Desktop API session. Run pull_bloomberg.py on the lab terminal. A TCP probe is not a successful data pull."
+    },
+    {
+      "id": "bloomberg_tsx_52week_highs_lows",
+      "status": "NOT_TESTED",
+      "note": "Requires verified security/field mapping and an entitled Bloomberg Desktop API session. Run pull_bloomberg.py on the lab terminal. A TCP probe is not a successful data pull."
+    },
+    {
+      "id": "bloomberg_canada_vixc_vixi_history",
+      "status": "NOT_TESTED",
+      "note": "Requires verified security/field mapping and an entitled Bloomberg Desktop API session. Run pull_bloomberg.py on the lab terminal. A TCP probe is not a successful data pull."
+    },
+    {
+      "id": "bloomberg_canada_ig_credit_spreads",
+      "status": "NOT_TESTED",
+      "note": "Requires verified security/field mapping and an entitled Bloomberg Desktop API session. Run pull_bloomberg.py on the lab terminal. A TCP probe is not a successful data pull."
+    },
+    {
+      "id": "bloomberg_canada_bond_total_return",
+      "status": "NOT_TESTED",
+      "note": "Requires verified security/field mapping and an entitled Bloomberg Desktop API session. Run pull_bloomberg.py on the lab terminal. A TCP probe is not a successful data pull."
+    }
+  ],
+  "bloomberg_tcp_probe": "TCP port open; Bloomberg identity and entitlements NOT verified"
+}
