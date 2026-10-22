@@ -12,21 +12,30 @@ Repository: [Canadian-Fear-and-Greed-Index-RSM434](https://github.com/FanDylan12
 
 ## Run the public data checks
 
-Requires Node.js 20+; no npm packages, API keys, or paid subscriptions are used by this script.
+Use Python 3.10+ for the public checker. It uses only the standard library; no API key or Node.js installation is required.
 
 ```sh
-node pull_data.mjs
+python pull_data.py
 ```
 
 Optional output directory:
 
 ```sh
-node pull_data.mjs ./my-access-results
+from pull_data import main
+report = main("./my-access-results")
 ```
 
-Downloads raw responses into `data-access-results/raw/` and generates `report.json` and `report.md`. Each source is handled independently: a failure does not prevent the other checks. An HTTP or parsing failure produces exit code 1; PARTIAL and NOT_TESTED entries are explicitly recorded but do not make the public-source command fail. Read the report, not just the exit code.
+Downloads raw responses into `data-access-results/raw/` and generates `python-report.json`. Each source is handled independently: a failure does not prevent the other checks. An HTTP or parsing failure produces exit code 1; PARTIAL and NOT_TESTED entries are explicitly recorded but do not make the public-source command fail. Read the report, not just the exit code.
 
 Checks include response status, expected schema, non-empty numeric observations, date ranges, missing values, duplicate dates and a rough calendar-day freshness flag. PASS means retrieval worked; it does not certify trading-calendar completeness or suitability. No missing values are filled and no index calculations occur.
+
+## Run in Spyder
+
+Download/extract the repository, keeping the files together. Open `pull_data.py` and press **F5** (Run file). Watch the **IPython Console** for live progress, PASS/PARTIAL/FAIL, observation counts, date ranges and the latest three values. The script resolves output paths relative to its own location, so Spyder's working directory need not match.
+
+On the signed-in university Bloomberg computer, open `pull_bloomberg.py` and press F5. Install `blpapi` into the same Python environment used by Spyder. This script prints connection status, then each dataset's result. Empty ticker/field mappings are shown as NOT_CONFIGURED, never PASS. Bloomberg access still requires terminal-side verification.
+
+Reports remain saved as JSON as well as displayed in the console. The Python public checker's live-run status is recorded in the change log below; the original historical results below came from the JavaScript checker.
 
 ## Initial results - October 22, 2026
 
@@ -46,9 +55,9 @@ The VIXI snapshot changes intraday; exact point count and timestamps are in the 
 
 ## Bloomberg terminal check
 
-The public script probes TCP port 8194 on localhost. During this run the port accepted a connection. **This does not authenticate Bloomberg or verify any dataset/entitlement.** No successful Bloomberg historical pull is claimed.
+The original JavaScript checker probes TCP port 8194 on localhost. During this run the port accepted a connection. **This does not authenticate Bloomberg or verify any dataset/entitlement.** No successful Bloomberg historical pull is claimed.
 
-The optional `pull_bloomberg.py` implements daily HistoricalDataRequest pulls using Bloomberg's official `blpapi`. It was prepared but could not be executed in this session because Python and the Bloomberg SDK were not available through the execution environment.
+The optional `pull_bloomberg.py` implements daily HistoricalDataRequest pulls using Bloomberg's official `blpapi`. It was executed with Anaconda Python 3.13.5: the missing-SDK and unconfigured-mapping paths display correctly. Actual Bloomberg historical retrieval remains untested because blpapi and an entitled terminal session are required.
 
 On the lab computer:
 
@@ -65,7 +74,8 @@ For a small first sample, pass explicit `--start` and `--end` dates. The script 
 
 ## Files
 
-- `pull_data.mjs`: executable public-source retrieval and access reporting.
+- `pull_data.py`: preferred Python/Spyder public-source checker with live console output.
+- `pull_data.mjs`: original JavaScript checker, retained for reference.
 - `pull_bloomberg.py`: optional terminal-only Bloomberg historical retrieval.
 - `bloomberg-series.json`: required dataset checklist; mappings await confirmation.
 - `docs/initial-access-report.md` and `.json`: reproducible checkpoint evidence.
@@ -114,3 +124,5 @@ October 22, 2026: ChatGPT/Codex read the supplied project briefs, drafted this R
 ## Change log
 
 - 2026-10-22: Initial README, public-source checks, optional Bloomberg adapter, and recorded access results. Private GitHub repository created and starter files uploaded.
+
+- 2026-10-22: Added Python/Spyder public checker and live console output to both Python scripts. Executed public checks: PASS=3, PARTIAL=1, FAIL=0. Latest equity put/call CSV now contains 3,963 observations through October 20. Original checkpoint table above remains a record of the earlier run. Bloomberg checker executed and reported missing blpapi plus ten unconfigured mappings. Spyder UI itself was not tested. Trailing NUL/whitespace padding is ignored for CSV parsing; raw responses are preserved.
