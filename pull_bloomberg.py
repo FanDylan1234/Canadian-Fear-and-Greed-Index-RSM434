@@ -61,12 +61,12 @@ def pull(session, blpapi, spec, start, end):
     finally:
         session.cancel(correlation)
 
-def main():
+def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", type=Path, default=ROOT / "bloomberg-series.json")
     parser.add_argument("--start", default="2010-01-01")
     parser.add_argument("--end", default=dt.date.today().isoformat())
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     dt.date.fromisoformat(args.start)
     dt.date.fromisoformat(args.end)
     if args.start > args.end:
@@ -75,6 +75,9 @@ def main():
     output = ROOT / "data-access-results"
     (output / "raw").mkdir(parents=True, exist_ok=True)
     report = {"tested_at_utc": dt.datetime.now(dt.timezone.utc).isoformat(), "results": []}
+    print("\nBLOOMBERG DATA ACCESS CHECKS", flush=True)
+    print(f"Requested dates: {args.start} -> {args.end}", flush=True)
+    print("[CONNECTING] Bloomberg Desktop API on localhost:8194 ...", flush=True)
     session = None
     blocker = None
     try:
@@ -88,10 +91,13 @@ def main():
             raise RuntimeError("Desktop API session did not start")
         if not session.openService("//blp/refdata"):
             raise RuntimeError("Cannot open Bloomberg reference-data service")
+        print("[CONNECTED] Reference-data service available; dataset access still needs testing.", flush=True)
     except Exception as exc:
         blocker = str(exc)
+        print(f"[BLOCKED] {blocker}", flush=True)
     try:
-        for spec in specs:
+        for index, spec in enumerate(specs, 1):
+            print(f"\n[{index}/{len(specs)}] Testing {spec['id']} ...", flush=True)
             result = {"id": spec["id"], "security": spec.get("security"), "field": spec.get("field")}
             if not spec.get("security") or not spec.get("field"):
                 result.update(status="NOT_CONFIGURED", reason="Confirm security and historical field in Bloomberg, then fill configuration.")
@@ -114,12 +120,26 @@ def main():
                 except Exception as exc:
                     result.update(status="FAIL", reason=str(exc))
             report["results"].append(result)
+            print(f"  [{result['status']}] {spec['id']}", flush=True)
+            if result["status"] == "PASS":
+                print(f"  {len(rows):,} observations | {dates[0]} -> {dates[-1]}", flush=True)
+                print("  Latest 3 observations:", flush=True)
+                for row in sorted(rows, key=lambda r: r["date"])[-3:]:
+                    print(f"    {row['date']}: {row['value']}", flush=True)
+            else:
+                print("  " + result["reason"], flush=True)
     finally:
         if session is not None:
             session.stop()
     (output / "bloomberg-report.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
-    print(json.dumps(report, indent=2))
+    from collections import Counter
+    counts = Counter(r["status"] for r in report["results"])
+    print("\nSUMMARY: " + " | ".join(f"{key}={value}" for key, value in counts.items()), flush=True)
+    print("Saved report: " + str(output / "bloomberg-report.json"), flush=True)
     return 0 if all(r["status"] == "PASS" for r in report["results"]) else 1
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    import sys
+    exit_code = main()
+    if "IPython" not in sys.modules:
+        raise SystemExit(exit_code)
