@@ -2,127 +2,103 @@
 
 RSM434H1F Financial Trading Strategies, Fall 2026. Industry Project 2; partner: Scotiabank.
 
-## Current scope
+This repository currently contains data retrieval and access checks. The assignment's indicator selection, sentiment index, scoring, evaluation and backtest remain unfinished.
 
-This is the initial **data-access checkpoint**, not the completed assignment. It contains source download scripts, an access report, and a living project README. Indicator selection, scoring, weighting, index history, evaluation, charts and trading rules have not been implemented.
+## Run everything in Spyder
 
-The eventual research question is whether Canadian market sentiment adds useful information about future returns or risk beyond US VIX alone. Future work remains for the team to design.
+1. On GitHub, choose **Code -> Download ZIP**.
+2. In Windows File Explorer, right-click the ZIP -> **Extract All**.
+3. In Spyder, open **run_all_checks.py** from the extracted folder.
+4. On the signed-in university Bloomberg computer, press **F5**.
 
-Repository: [Canadian-Fear-and-Greed-Index-RSM434](https://github.com/FanDylan1234/Canadian-Fear-and-Greed-Index-RSM434) (private).
+Keep every extracted file together, including `bloomberg-series.json` and `data_checks.py`. Run the actual extracted script, not the ZIP or a pasted untitled copy.
 
-## Run the public data checks
+Requires Python 3.10+ and Bloomberg's official `blpapi` in Spyder's Python environment. Public downloads use only Python's standard library. [Official Bloomberg SDK instructions](https://professional.bloomberg.com/support/api-library/).
 
-Use Python 3.10+ for the public checker. It uses only the standard library; no API key or Node.js installation is required.
+Command-line equivalent:
+
+```sh
+python run_all_checks.py
+```
+
+The checker pulls the three public daily histories, checks the website VIXI snapshot, then attempts all ten Bloomberg datasets using configured candidates and Bloomberg field/security search. It prints progress, candidate mappings, dates, observations, coverage warnings and sample values as it goes.
+
+## Required data and history
+
+[Full PDF requirements, definitions and candidate provenance](docs/data-requirements.md).
+
+| Input | Required daily history |
+|---|---|
+| S&P/TSX Composite price and total return | 2010 to latest |
+| TSX advancing/declining issues; new 52-week highs/lows | 2010 to latest |
+| Canadian VIXC | October 2010 to January 2020, as available |
+| Replacement VIXI | April 2021 to latest, as available |
+| US VIX, Canadian IG credit spreads, Canada 10-year yield, bond/stock return data | 2010 to latest |
+| Canadian equity options put/call ratio | 2011 to latest |
+
+The assignment suggests these datasets but does not provide Bloomberg identifiers. It also leaves the exact credit-spread definition and bond benchmark open. Candidate mappings are explicitly labelled; successful numeric data alone do not establish the right universe, units or series definition.
+
+The default end date is **yesterday in Toronto**, excluding today's unfinished session. The two Canadian volatility histories stay separate. The 2010 put/call gap and 2020-21 Canadian volatility gap remain explicit.
+
+## Console results
+
+- `PASS`: verified mapping passed the basic date-range/quality screen.
+- `REVIEW`: Bloomberg candidate downloaded, but definition or coverage needs review.
+- `UNRESOLVED`: no eligible mapping found by search.
+- `FAIL`: a candidate/public pull failed; other datasets continue.
+- `BLOCKED`: missing SDK or inaccessible Bloomberg service.
+- `PARTIAL`: VIXI website intraday snapshot; not historical daily coverage.
+
+The checker flags late starts, early endings, long internal gaps, missing values, duplicate dates, suspicious repeated values, and non-integer/negative breadth counts. Weekday gap counts include holidays; this is not a certified exchange-calendar audit. No missing values are filled.
+
+Bloomberg queries are bounded to four candidate pairs per dataset. A small sample is tried before full history; discovery/entitlement errors are saved. If no recent sample is available, full history is still attempted to distinguish stale data from no history. Field metadata and security names/currency are saved for definition review. The user's verified TSX price mapping is included by default.
+
+After a Bloomberg candidate's definition has been reviewed, record its chosen `security`, `field`, and `verified: true` in `bloomberg-series.json`. Downloaded candidates remain REVIEW until then. No US fallback is silently substituted.
+
+## Reports
+
+All outputs go under `data-access-results/` beside the scripts:
+
+- `all-checks-report.json` and `.md`: combined result.
+- `bloomberg-report.json`: candidate attempts, errors, field/security discovery, metadata and history checks.
+- `python-report.json`: public-source results.
+- `raw/`: downloaded responses and per-series Bloomberg CSVs.
+
+Downloaded vendor data are excluded from Git. Keep raw Bloomberg exports local and respect the institution's data terms. No credentials are stored in the repository.
+
+Individual checks:
 
 ```sh
 python pull_data.py
+python pull_bloomberg.py
+python pull_bloomberg.py --start 2010-01-01 --end 2026-10-21
 ```
 
-Optional output directory:
+The Bloomberg script returns nonzero in a shell if any dataset still needs review or fails. The combined script returns nonzero unless all 13 daily input checks pass; the ancillary VIXI snapshot is excluded from that count. Spyder keeps the console interactive. All checks passing does not remove the documented 2010/volatility project gaps or choose the final indicators.
+
+## Evidence and validation
+
+- Public Python run on October 22, 2026: FRED VIX and Canada 10-year yield from January 4, 2010 through October 21, 2026; Montreal equity put/call from January 4, 2011 through October 20, 2026 (3,963 numeric observations); VIXI snapshot PARTIAL.
+- User's Bloomberg lab run: `SPTSX Index / PX_LAST` returned 4,217 observations, January 4, 2010 through October 22, 2026. This is user-provided console evidence, not an independently rerun terminal pull.
+- The combined runner was executed here: public PASS=3, snapshot PARTIAL=1, Bloomberg BLOCKED=10 because this execution environment lacks `blpapi`. The user's lab already connected successfully.
+- Seven offline tests passed: historical range/gaps, VIXC cessation, count validity, candidate review status, failure isolation/session cleanup, and Bloomberg response date/null/error parsing. These tests do not confirm live Bloomberg search schemas, entitlements or candidate mappings.
 
 ```sh
-from pull_data import main
-report = main("./my-access-results")
+python -m unittest discover -s tests -v
 ```
 
-Downloads raw responses into `data-access-results/raw/` and generates `python-report.json`. Each source is handled independently: a failure does not prevent the other checks. An HTTP or parsing failure produces exit code 1; PARTIAL and NOT_TESTED entries are explicitly recorded but do not make the public-source command fail. Read the report, not just the exit code.
+Earlier access snapshots remain under `docs/initial-access-report.*`; consult run timestamps.
 
-Checks include response status, expected schema, non-empty numeric observations, date ranges, missing values, duplicate dates and a rough calendar-day freshness flag. PASS means retrieval worked; it does not certify trading-calendar completeness or suitability. No missing values are filled and no index calculations occur.
+## Project milestones (2026)
 
-## Run in Spyder
+Oct 25: team plan and data access. Nov 8: progress update. Nov 20: project evaluation/backtest target. Week of Nov 23: dry run. Dec 1: final output. Week of Nov 30: partner presentation. Dec 6: individual reflection.
 
-Download/extract the repository, keeping the files together. Open `pull_data.py` and press **F5** (Run file). Watch the **IPython Console** for live progress, PASS/PARTIAL/FAIL, observation counts, date ranges and the latest three values. The script resolves output paths relative to its own location, so Spyder's working directory need not match.
+## Sources and AI assistance
 
-On the signed-in university Bloomberg computer, open `pull_bloomberg.py` and press F5. Install `blpapi` into the same Python environment used by Spyder. This script prints connection status, then each dataset's result. Empty ticker/field mappings are shown as NOT_CONFIGURED, never PASS. Bloomberg access still requires terminal-side verification.
+- User-supplied Project 2 PDF, pages 1-4; Industry Projects Overview PDF, pages 1-4.
+- [FRED VIXCLS](https://fred.stlouisfed.org/series/VIXCLS), Chicago Board Options Exchange via FRED.
+- [Bank of Canada Valet](https://www.bankofcanada.ca/valet/docs/), `BD.CDN.10YR.DQ.YLD`.
+- [Montreal Exchange put/call ratios](https://www.m-x.ca/en/trading/data/put-call-ratios), equity CSV; [VIXI website feed](https://www.m-x.ca/files/json/vixi.json).
+- Bloomberg index/API and S&P methodology references are listed in [data requirements](docs/data-requirements.md).
 
-Reports remain saved as JSON as well as displayed in the console. The Python public checker's live-run status is recorded in the change log below; the original historical results below came from the JavaScript checker.
-
-## Initial results - October 22, 2026
-
-| Required input | Source | Result |
-|---|---|---|
-| US VIX | FRED VIXCLS | PASS: 4,259 numeric daily observations, Jan 4, 2010-Oct 21, 2026; 124 blank observations retained in raw CSV |
-| Canada 10-year benchmark yield | Bank of Canada Valet | PASS: 4,194 numeric daily observations, Jan 4, 2010-Oct 21, 2026 |
-| Canadian equity options put/call ratio | Montreal Exchange CSV | PASS: 3,961 observations, Jan 4, 2011-Oct 16, 2026; last available observation is six calendar days old |
-| Canadian implied volatility | Montreal Exchange VIXI chart JSON | PARTIAL: current-day intraday points download; this is not historical daily coverage |
-| TSX price and total-return index | Bloomberg | NOT TESTED: needs an entitled session and confirmed security/field mappings |
-| TSX advancing/declining issues and 52-week highs/lows | Bloomberg | NOT TESTED: same access requirement |
-| Historical VIXC / VIXI | Bloomberg | NOT TESTED: preserve the assignment's Jan 2020-Apr 2021 transition gap |
-| Canadian investment-grade corporate spreads | Bloomberg | NOT TESTED: choose and confirm a Canadian IG spread series and field |
-| Bond return series for bond-versus-stock comparisons | Bloomberg | NOT TESTED: bond total-return series must be selected and confirmed |
-
-The VIXI snapshot changes intraday; exact point count and timestamps are in the saved report. Yield levels do not substitute for bond total returns. The equity put/call CSV is preliminary exchange data and does not provide 2010 history. No fallback has been silently substituted.
-
-## Bloomberg terminal check
-
-The original JavaScript checker probes TCP port 8194 on localhost. During this run the port accepted a connection. **This does not authenticate Bloomberg or verify any dataset/entitlement.** No successful Bloomberg historical pull is claimed.
-
-The optional `pull_bloomberg.py` implements daily HistoricalDataRequest pulls using Bloomberg's official `blpapi`. It was executed with Anaconda Python 3.13.5: the missing-SDK and unconfigured-mapping paths display correctly. Actual Bloomberg historical retrieval remains untested because blpapi and an entitled terminal session are required.
-
-On the lab computer:
-
-1. Use an entitled, signed-in Bloomberg Professional session with Desktop API access.
-2. Confirm the exact security and historical field for each row in `bloomberg-series.json` using Bloomberg's security and field search. Empty mappings are intentional; guessed identifiers must not be treated as verified.
-3. Install the official Python SDK according to [Bloomberg API Library](https://professional.bloomberg.com/support/api-library/).
-4. Run:
-
-```sh
-python pull_bloomberg.py --start 2010-01-01
-```
-
-For a small first sample, pass explicit `--start` and `--end` dates. The script saves per-series CSVs and `bloomberg-report.json`, reports field/security errors and timeouts, and returns a nonzero exit code for unresolved datasets. API availability on university terminals must be confirmed locally.
-
-## Files
-
-- `pull_data.py`: preferred Python/Spyder public-source checker with live console output.
-- `pull_data.mjs`: original JavaScript checker, retained for reference.
-- `pull_bloomberg.py`: optional terminal-only Bloomberg historical retrieval.
-- `bloomberg-series.json`: required dataset checklist; mappings await confirmation.
-- `docs/initial-access-report.md` and `.json`: reproducible checkpoint evidence.
-- `.gitignore`: excludes downloaded data, local environments and secrets.
-
-## Next decisions - intentionally unfinished
-
-- Confirm Bloomberg mappings and entitlements; retest exact histories.
-- Resolve missing 2010 put/call data, Canadian volatility gaps, and stale observations.
-- Agree on 5-8 indicators and their rationales.
-- Later: choose past-only scoring and equal-weight baseline, freeze design through 2019, evaluate 2020 onward against VIX, then backtest one rule.
-
-No design or empirical conclusion is implied by these future tasks.
-
-## Course checkpoints
-
-| Date (2026) | Milestone |
-|---|---|
-| Oct 25, 11:59 p.m. | Team plan and data access confirmation |
-| Nov 8, 11:59 p.m. | Progress update |
-| Nov 20 | Project-specific evaluation/backtest target |
-| Week of Nov 23 | Dry run |
-| Dec 1 | Final output |
-| Week of Nov 30 | Partner presentation |
-| Dec 6, 11:59 p.m. | Individual reflection |
-
-## Sources and provenance
-
-Assignment references supplied by the user:
-- RSM434H1F-F2026-Industry Project 02 - Canadian Fear and Greed Index.pdf, pp. 1-4.
-- RSM434H1F-F2026-Industry Projects - Overview.pdf, pp. 1-4.
-
-Data and API references:
-- [FRED VIXCLS](https://fred.stlouisfed.org/series/VIXCLS), source: Chicago Board Options Exchange; [CSV download](https://fred.stlouisfed.org/graph/fredgraph.csv?id=VIXCLS&cosd=2010-01-01).
-- [Bank of Canada Valet documentation](https://www.bankofcanada.ca/valet/docs/); series `BD.CDN.10YR.DQ.YLD`.
-- [Montreal Exchange put/call ratios](https://www.m-x.ca/en/trading/data/put-call-ratios); [equity CSV](https://www.m-x.ca/files/ratio-equity.csv).
-- [Montreal Exchange homepage](https://www.m-x.ca/); its chart loads [VIXI JSON](https://www.m-x.ca/files/json/vixi.json). This is an observed website endpoint, not a promised historical API.
-- [Bloomberg API Library](https://professional.bloomberg.com/support/api-library/) and [Core Developer Guide](https://data.bloomberglp.com/professional/sites/10/2017/03/BLPAPI-Core-Developer-Guide.pdf).
-
-Keep downloaded vendor data out of Git. Confirm source usage/redistribution permissions before publishing data. Assignment PDFs are not included in the repository starter.
-
-## AI assistance log
-
-October 22, 2026: ChatGPT/Codex read the supplied project briefs, drafted this README and access scripts, and ran the public-source download checks. Bloomberg retrieval remains unexecuted. The team should review the code and preserve this disclosure for the course's required AI-use appendix.
-
-## Change log
-
-- 2026-10-22: Initial README, public-source checks, optional Bloomberg adapter, and recorded access results. Private GitHub repository created and starter files uploaded.
-
-- 2026-10-22: Added Python/Spyder public checker and live console output to both Python scripts. Executed public checks: PASS=3, PARTIAL=1, FAIL=0. Latest equity put/call CSV now contains 3,963 observations through October 20. Original checkpoint table above remains a record of the earlier run. Bloomberg checker executed and reported missing blpapi plus ten unconfigured mappings. Spyder UI itself was not tested. Trailing NUL/whitespace padding is ignored for CSV parsing; raw responses are preserved.
+October 22, 2026: ChatGPT/Codex drafted the access scripts and documentation, reread both PDFs, tested public access and offline checks, and added Bloomberg candidate discovery. User independently tested the TSX price pull on the lab terminal. Remaining Bloomberg candidates need a lab run and definition review. Preserve this disclosure for the course AI-use appendix.

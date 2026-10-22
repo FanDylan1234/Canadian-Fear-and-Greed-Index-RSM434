@@ -1,52 +1,139 @@
 [
   {
     "id": "tsx_price",
-    "security": null,
-    "field": null
+    "definition": "S&P/TSX Composite price index level, CAD.",
+    "expected_start": "2010-01-01",
+    "kind": "level",
+    "security": "SPTSX Index",
+    "field": "PX_LAST",
+    "verified": true,
+    "provenance": "User lab run on 2026-10-22: 4,217 observations, 2010-01-04 to 2026-10-22."
   },
   {
     "id": "tsx_total_return",
-    "security": null,
-    "field": null
+    "definition": "S&P/TSX Composite total-return index level including reinvested dividends, CAD; not price return or cumulative percent return.",
+    "expected_start": "2010-01-01",
+    "kind": "level",
+    "security": "SPTSX Index",
+    "fields": [
+      "TOT_RETURN_INDEX_GROSS_DVDS"
+    ],
+    "field_search": "total return index gross dividends",
+    "instrument_search": "S&P/TSX Composite Total Return",
+    "instrument_pattern": "(?i)(TSX|Toronto).*?(Composite).*?(Total Return)|(?i:Total Return).*?(?i:TSX).*?(?i:Composite)",
+    "verified": false
   },
   {
     "id": "tsx_advancing",
-    "security": null,
-    "field": null
+    "definition": "Daily count of advancing TSX issues; confirm TSX exchange universe versus Composite constituents.",
+    "expected_start": "2010-01-01",
+    "kind": "count",
+    "security": "SPTSX Index",
+    "fields": [],
+    "field_search": "advancing issues",
+    "field_terms": [
+      "advanc"
+    ],
+    "instrument_search": "TSX advancing",
+    "instrument_pattern": "(?i)(advanc|advances)",
+    "verified": false,
+    "review_note": "Field search on SPTSX may yield Composite-member counts; PDF says TSX. Confirm universe, daily counts and 52-week definition before accepting."
   },
   {
     "id": "tsx_declining",
-    "security": null,
-    "field": null
+    "definition": "Daily count of declining TSX issues; use the same universe as advancers.",
+    "expected_start": "2010-01-01",
+    "kind": "count",
+    "security": "SPTSX Index",
+    "fields": [],
+    "field_search": "declining issues",
+    "field_terms": [
+      "declin"
+    ],
+    "instrument_search": "TSX declining",
+    "instrument_pattern": "(?i)(declin|declines)",
+    "verified": false,
+    "review_note": "Field search on SPTSX may yield Composite-member counts; PDF says TSX. Confirm universe, daily counts and 52-week definition before accepting."
   },
   {
     "id": "tsx_52week_highs",
-    "security": null,
-    "field": null
+    "definition": "Daily count of TSX issues making NEW 52-week highs; not the index's own 52-week high price.",
+    "expected_start": "2010-01-01",
+    "kind": "count",
+    "security": "SPTSX Index",
+    "fields": [],
+    "field_search": "number members new 52 week highs",
+    "field_terms": [
+      "52",
+      "high"
+    ],
+    "instrument_search": "TSX new 52 week highs",
+    "instrument_pattern": "(?i)(52|new).*high|high.*(52|new)",
+    "verified": false,
+    "review_note": "Field search on SPTSX may yield Composite-member counts; PDF says TSX. Confirm universe, daily counts and 52-week definition before accepting."
   },
   {
     "id": "tsx_52week_lows",
-    "security": null,
-    "field": null
+    "definition": "Daily count of TSX issues making NEW 52-week lows; not the index's own 52-week low price.",
+    "expected_start": "2010-01-01",
+    "kind": "count",
+    "security": "SPTSX Index",
+    "fields": [],
+    "field_search": "number members new 52 week lows",
+    "field_terms": [
+      "52",
+      "low"
+    ],
+    "instrument_search": "TSX new 52 week lows",
+    "instrument_pattern": "(?i)(52|new).*low|low.*(52|new)",
+    "verified": false,
+    "review_note": "Field search on SPTSX may yield Composite-member counts; PDF says TSX. Confirm universe, daily counts and 52-week definition before accepting."
   },
   {
     "id": "canada_vixc_history",
-    "security": null,
-    "field": null
+    "definition": "Legacy S&P/TSX 60 implied volatility VIXC, daily index level, percent.",
+    "expected_start": "2010-10-01",
+    "expected_end": "2020-01-31",
+    "kind": "volatility",
+    "security": "VIXC Index",
+    "field": "PX_LAST",
+    "verified": false,
+    "provenance": "Assignment Project 2 p.2 specifies VIXC and dates; Bloomberg parsekey must be verified by the terminal."
   },
   {
     "id": "canada_vixi_history",
-    "security": null,
-    "field": null
+    "definition": "Replacement S&P/TSX 60 implied volatility VIXI, daily index level, percent; preserve launch history separately from back-calculated values.",
+    "expected_start": "2021-04-26",
+    "kind": "volatility",
+    "security": "VIXI Index",
+    "field": "PX_LAST",
+    "verified": false,
+    "provenance": "S&P/TSX derivatives methodology lists Bloomberg VIXI, launch 2021-04-26 and first-value date 2017-01-04. Assignment expects Apr 2021 onward. Default pull uses launch onward; earlier back-calculated history must not silently erase the gap noted in the assignment."
   },
   {
     "id": "canada_ig_credit_spread",
-    "security": null,
-    "field": null
+    "definition": "Canadian investment-grade corporate credit spread in basis points; OAS is a proposed implementation choice, not specified by the PDF. Not bond yield or total return.",
+    "expected_start": "2010-01-01",
+    "kind": "spread",
+    "security": "I05510CA Index",
+    "fields": [
+      "INDEX_OAS_TSY_BP"
+    ],
+    "field_search": "option adjusted spread",
+    "field_terms": [
+      "spread"
+    ],
+    "verified": false,
+    "provenance": "Bloomberg Canadian Index Monthly May 2023 identifies Corporate I05510CA. OAS field is a candidate requiring Bloomberg field documentation and historical permission check."
   },
   {
     "id": "canada_bond_total_return",
-    "security": null,
-    "field": null
+    "definition": "CAD bond total-return index level for bond-versus-stock comparisons. PDF leaves bond benchmark unspecified; proposed Canada Aggregate includes government and corporate debt, not a pure government safe-haven benchmark.",
+    "expected_start": "2010-01-01",
+    "kind": "level",
+    "security": "I05486CA Index",
+    "field": "PX_LAST",
+    "verified": false,
+    "provenance": "Bloomberg Canadian index publications identify I05486CA as Canada Aggregate Total Return Unhedged CAD. Broad bond benchmark is a proposed choice and needs team review."
   }
 ]

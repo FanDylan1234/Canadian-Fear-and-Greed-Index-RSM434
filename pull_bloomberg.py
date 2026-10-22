@@ -1,6 +1,6 @@
-"""Optional Bloomberg historical-data probe. Run on an entitled lab terminal.
-Python 3.10+ and Bloomberg's official blpapi package are required.
-No index construction, scoring, or backtesting.
+"""Bloomberg access, definition discovery and history checks.
+Run on the signed-in lab terminal. Spyder: open this file and press F5.
+Uses per-request event queues, bounded candidate search and daily historical pulls.
 """
 import argparse
 import csv
@@ -8,138 +8,286 @@ import datetime as dt
 import json
 import math
 from pathlib import Path
+import re
+import sys
 import time
+from data_checks import ROOT, yesterday, check_history, show_result, save_report
 
-ROOT = Path(__file__).resolve().parent
-
-def pull(session, blpapi, spec, start, end):
-    request = session.getService("//blp/refdata").createRequest("HistoricalDataRequest")
-    request.getElement("securities").appendValue(spec["security"])
-    request.getElement("fields").appendValue(spec["field"])
-    request.set("startDate", start.replace("-", ""))
-    request.set("endDate", end.replace("-", ""))
-    request.set("periodicitySelection", "DAILY")
-    # Do not invent observations on non-trading days or fill missing values.
-    correlation = session.sendRequest(request)
-    rows, errors = [], []
-    deadline = time.monotonic() + 45
-    try:
-        while time.monotonic() < deadline:
-            event = session.nextEvent(1000)
-            for message in event:
-                if correlation not in message.correlationIds():
-                    continue
-                if message.hasElement("responseError"):
-                    errors.append(str(message.getElement("responseError")))
-                if message.hasElement("securityData"):
-                    data = message.getElement("securityData")
-                    if data.hasElement("securityError"):
-                        errors.append(str(data.getElement("securityError")))
-                    if data.hasElement("fieldExceptions"):
-                        exceptions = data.getElement("fieldExceptions")
-                        if exceptions.numValues():
-                            errors.append(str(exceptions))
-                    if data.hasElement("fieldData"):
-                        values = data.getElement("fieldData")
-                        for i in range(values.numValues()):
-                            row = values.getValueAsElement(i)
-                            if row.hasElement(spec["field"]) and not row.getElement(spec["field"]).isNull():
-                                value = row.getElementAsFloat(spec["field"])
-                                if math.isfinite(value):
-                                    rows.append({"date": str(row.getElementAsDatetime("date")), "value": value})
-                if message.messageType() == blpapi.Name("RequestFailure"):
-                    errors.append(str(message))
-            if event.eventType() == blpapi.Event.RESPONSE:
-                if errors:
-                    raise RuntimeError("; ".join(errors))
-                if not rows:
-                    raise RuntimeError("No numeric historical observations returned")
-                return rows
-            if errors:
-                raise RuntimeError("; ".join(errors))
-        raise TimeoutError("Bloomberg request exceeded 45 seconds")
-    finally:
-        session.cancel(correlation)
-
-def main(argv=None):
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--config", type=Path, default=ROOT / "bloomberg-series.json")
-    parser.add_argument("--start", default="2010-01-01")
-    parser.add_argument("--end", default=dt.date.today().isoformat())
-    args = parser.parse_args(argv)
-    dt.date.fromisoformat(args.start)
-    dt.date.fromisoformat(args.end)
-    if args.start > args.end:
-        parser.error("--start must precede --end")
-    specs = json.loads(args.config.read_text(encoding="utf-8"))
-    output = ROOT / "data-access-results"
-    (output / "raw").mkdir(parents=True, exist_ok=True)
-    report = {"tested_at_utc": dt.datetime.now(dt.timezone.utc).isoformat(), "results": []}
-    print("\nBLOOMBERG DATA ACCESS CHECKS", flush=True)
-    print(f"Requested dates: {args.start} -> {args.end}", flush=True)
-    print("[CONNECTING] Bloomberg Desktop API on localhost:8194 ...", flush=True)
-    session = None
-    blocker = None
-    try:
+class BloombergClient:
+    def __init__(self):
         import blpapi
+        self.api = blpapi
         options = blpapi.SessionOptions()
         options.setServerHost("localhost")
         options.setServerPort(8194)
         options.setConnectTimeout(5000)
-        session = blpapi.Session(options)
-        if not session.start():
-            raise RuntimeError("Desktop API session did not start")
-        if not session.openService("//blp/refdata"):
-            raise RuntimeError("Cannot open Bloomberg reference-data service")
-        print("[CONNECTED] Reference-data service available; dataset access still needs testing.", flush=True)
-    except Exception as exc:
-        blocker = str(exc)
-        print(f"[BLOCKED] {blocker}", flush=True)
+        self.session = blpapi.Session(options)
+        self.services = set()
+        self.cache = {}
+        if not self.session.start():
+            self.close()
+            raise RuntimeError("Bloomberg Desktop API did not start. Sign in to the lab terminal.")
+        try:
+            self.service("//blp/refdata")
+        except Exception:
+            self.close()
+            raise
+
+    def close(self):
+        self.session.stop()
+
+    def service(self, name):
+        if name not in self.services:
+            if not self.session.openService(name):
+                raise RuntimeError("Cannot open "+name)
+            self.services.add(name)
+        return self.session.getService(name)
+
+    def request(self, service, operation, params, arrays=None):
+        request = self.service(service).createRequest(operation)
+        for key, value in params.items():
+            request.set(key, value)
+        for key, values in (arrays or {}).items():
+            for value in values:
+                request.getElement(key).appendValue(value)
+        queue = self.api.EventQueue()
+        correlation = self.session.sendRequest(request, eventQueue=queue)
+        deadline = time.monotonic()+45
+        messages = []
+        try:
+            while time.monotonic() < deadline:
+                event = queue.nextEvent(1000)
+                for msg in event:
+                    if str(msg.messageType()) == "RequestFailure":
+                        raise RuntimeError(str(msg))
+                    data = msg.toPy()
+                    for error in ("responseError","fieldSearchError","instrumentListError"):
+                        if error in data:
+                            raise RuntimeError(str(data[error]))
+                    messages.append(data)
+                if event.eventType() == self.api.Event.RESPONSE:
+                    return messages
+            raise TimeoutError(operation+" exceeded 45 seconds")
+        finally:
+            self.session.cancel(correlation)
+
+    def fields(self, query):
+        key=("fields",query)
+        if key not in self.cache:
+            fields=[]
+            for msg in self.request("//blp/apiflds","FieldSearchRequest",
+                                    {"searchSpec":query,"returnFieldDocumentation":True}):
+                for item in msg.get("fieldData",[]):
+                    if "fieldInfo" in item:
+                        info=item["fieldInfo"]
+                        fields.append(dict(field=info.get("mnemonic",item.get("id")),
+                                           description=info.get("description",""),
+                                           documentation=info.get("documentation",""),
+                                           datatype=info.get("datatype","")))
+            self.cache[key]=fields
+        return self.cache[key]
+
+    def instruments(self, query):
+        key=("instruments",query)
+        if key not in self.cache:
+            matches=[]
+            for msg in self.request("//blp/instruments","instrumentListRequest",
+                                    {"query":query,"yellowKeyFilter":"YK_FILTER_INDX","maxResults":20}):
+                for item in msg.get("results",[]):
+                    security=item.get("security","").removeprefix("/ticker/")
+                    matches.append(dict(security=security,description=item.get("description","")))
+            self.cache[key]=matches
+        return self.cache[key]
+
+    def metadata(self, security, field):
+        result={"security":security,"field":field}
+        try:
+            result["security_details"]=self.request("//blp/refdata","ReferenceDataRequest",{},
+                {"securities":[security],"fields":["NAME","SECURITY_DES","CRNCY"]})
+        except Exception as exc:
+            result["security_metadata_error"]=str(exc)
+        try:
+            result["field_details"]=self.request("//blp/apiflds","FieldInfoRequest",
+                {"returnFieldDocumentation":True},{"id":[field]})
+        except Exception as exc:
+            result["field_metadata_error"]=str(exc)
+        return result
+
+    def history(self, security, field, start, end):
+        rows=[]
+        for msg in self.request("//blp/refdata","HistoricalDataRequest",
+                {"startDate":start.replace("-",""),"endDate":end.replace("-",""),
+                 "periodicitySelection":"DAILY","nonTradingDayFillOption":"ACTIVE_DAYS_ONLY"},
+                {"securities":[security],"fields":[field]}):
+            data=msg.get("securityData",{})
+            if "securityError" in data:
+                raise RuntimeError(str(data["securityError"]))
+            if data.get("fieldExceptions"):
+                raise RuntimeError(str(data["fieldExceptions"]))
+            for item in data.get("fieldData",[]):
+                date=item.get("date")
+                if isinstance(date,(dt.datetime,dt.date)):
+                    date=date.isoformat()[:10]
+                else:
+                    date=str(date)[:10]
+                dt.date.fromisoformat(date)
+                value=item.get(field)
+                if value is not None:
+                    value=float(value)
+                    if not math.isfinite(value):
+                        raise ValueError("Non-finite value")
+                rows.append({"date":date,"value":value})
+        if not any(r["value"] is not None for r in rows):
+            raise RuntimeError("No numeric historical observations")
+        return rows
+
+def candidate_pairs(client, spec, result):
+    pairs=[]
+    if spec.get("security") and spec.get("field"):
+        pairs.append((spec["security"],spec["field"]))
+    for field in spec.get("fields",[]):
+        pairs.append((spec["security"],field))
+    # Field discovery is especially important for breadth: no invented mnemonics.
+    if spec.get("field_search"):
+        try:
+            matches=client.fields(spec["field_search"])
+            result["field_search_results"]=matches
+            for item in matches:
+                text=(item["field"]+" "+item["description"]).lower()
+                if all(term.lower() in text for term in spec.get("field_terms",[])):
+                    if spec.get("kind")=="count" and re.search(r"percent|percentage|ratio|pct|volume",text):
+                        continue
+                    pairs.append((spec["security"],item["field"]))
+        except Exception as exc:
+            result["field_search_error"]=str(exc)
+    if spec.get("instrument_search"):
+        try:
+            matches=client.instruments(spec["instrument_search"])
+            result["instrument_search_results"]=matches
+            for item in matches:
+                text=item["security"]+" "+item["description"]
+                if not re.search(r"TSX|Toronto",text,re.I):
+                    continue
+                if re.search(spec.get("instrument_pattern","."),text):
+                    pairs.append((item["security"],"PX_LAST"))
+        except Exception as exc:
+            result["instrument_search_error"]=str(exc)
+    unique=list(dict.fromkeys(pairs))
+    # Prefer declared candidate mappings. Discovery results remain suggestions.
+    return unique[:4]
+
+def test_spec(client, spec, start, end, output):
+    result=dict(id=spec["id"],definition=spec.get("definition",""),attempts=[])
+    required_start=max(start,spec.get("expected_start",start))
+    required_end=min(end,spec.get("expected_end",end))
+    if required_start>required_end:
+        result.update(status="OUTSIDE_REQUEST",reason="Required series window does not overlap requested dates.")
+        return result
+    candidates=candidate_pairs(client,spec,result)
+    if not candidates:
+        result.update(status="UNRESOLVED",reason="No eligible mapping found. Search output/errors are saved in the report; confirm using FLDS/SECF in Bloomberg.")
+        return result
+    for number,(security,field) in enumerate(candidates,1):
+        attempt=dict(security=security,field=field)
+        result["attempts"].append(attempt)
+        print(f"  Candidate {number}/{len(candidates)}: {security} / {field}",flush=True)
+        try:
+            # Probe a small sample near this series' requested end (VIXC uses Jan 2020).
+            sample_start=max(required_start,(dt.date.fromisoformat(required_end)-dt.timedelta(days=45)).isoformat())
+            try:
+                sample=client.history(security,field,sample_start,required_end)
+                print(f"    Sample received: {len(sample)} rows. Pulling required history ...",flush=True)
+            except RuntimeError as exc:
+                if "No numeric historical observations" not in str(exc):
+                    raise
+                print("    No recent sample; pulling full window to check for older/stale history.",flush=True)
+            rows=client.history(security,field,required_start,required_end)
+            coverage=check_history(rows,spec,start,end)
+            if coverage["numeric_rows"]==0:
+                raise RuntimeError("No numeric observations in required window")
+            safe_id=spec["id"]
+            if not re.fullmatch(r"[A-Za-z0-9_]+",safe_id):
+                raise ValueError("Unsafe dataset id")
+            (output/"raw").mkdir(parents=True,exist_ok=True)
+            target=output/"raw"/(safe_id+".csv")
+            with target.open("w",newline="",encoding="utf-8") as handle:
+                writer=csv.DictWriter(handle,fieldnames=["date","value"])
+                writer.writeheader()
+                writer.writerows(rows)
+            verified=spec.get("verified",False) and security==spec.get("security") and field==spec.get("field")
+            status="PASS" if verified and coverage["status"]=="RANGE_OK" else "REVIEW"
+            metadata=client.metadata(security,field)
+            attempt["status"]="DOWNLOADED"
+            result.update(status=status,security=security,field=field,coverage=coverage,
+                definition_verified=bool(verified),metadata=metadata,
+                raw_file=str(target),sample=sorted([r for r in rows if r["value"] is not None],key=lambda r:r["date"])[-3:],
+                reason="Numeric history downloaded. "+("Previously verified mapping." if verified else "Candidate definition, universe, units and benchmark choice require review; inspect saved Bloomberg documentation."))
+            return result
+        except Exception as exc:
+            attempt.update(status="FAIL",error=str(exc))
+            print("    [FAIL] "+str(exc),flush=True)
+    result.update(status="FAIL",reason="All candidate historical pulls failed; see attempts and search metadata.")
+    return result
+
+def run_checks(start="2010-01-01",end=None,config=None,output=None,client_factory=BloombergClient):
+    end=end or yesterday()
+    config=Path(config) if config else ROOT/"bloomberg-series.json"
+    output=Path(output) if output else ROOT/"data-access-results"
+    print("\nBLOOMBERG - ALL DATASET CHECKS",flush=True)
+    print(f"Requested: {start} -> {end} (default excludes today's unfinished session)",flush=True)
+    report=dict(tested_at_utc=dt.datetime.now(dt.timezone.utc).isoformat(),start=start,end=end,results=[])
     try:
-        for index, spec in enumerate(specs, 1):
-            print(f"\n[{index}/{len(specs)}] Testing {spec['id']} ...", flush=True)
-            result = {"id": spec["id"], "security": spec.get("security"), "field": spec.get("field")}
-            if not spec.get("security") or not spec.get("field"):
-                result.update(status="NOT_CONFIGURED", reason="Confirm security and historical field in Bloomberg, then fill configuration.")
-                if blocker:
-                    result["session_blocker"] = blocker
-            elif blocker:
-                result.update(status="BLOCKED", reason=blocker)
+        specs=json.loads(config.read_text(encoding="utf-8-sig"))
+    except Exception as exc:
+        report.update(config_error=str(exc))
+        print(f"[CONFIG ERROR] {exc}. Extract the ZIP and keep bloomberg-series.json beside this script.",flush=True)
+        save_report(output,"bloomberg-report.json",report)
+        return report
+    client=None
+    try:
+        print("[CONNECTING] Bloomberg localhost:8194 ...",flush=True)
+        client=client_factory()
+        report["connection_status"]="CONNECTED"
+        print("[CONNECTED] Starting all configured candidate/discovery checks.",flush=True)
+    except Exception as exc:
+        report.update(connection_status="BLOCKED",connection_error=str(exc))
+        print("[BLOCKED] "+str(exc),flush=True)
+    try:
+        for index,spec in enumerate(specs,1):
+            print(f"\n[{index}/{len(specs)}] {spec['id']}: {spec.get('definition','')}",flush=True)
+            if client is None:
+                result=dict(id=spec["id"],status="BLOCKED",reason=report["connection_error"])
             else:
                 try:
-                    rows = pull(session, blpapi, spec, args.start, args.end)
-                    safe_id = spec["id"]
-                    if not safe_id.replace("_", "").isalnum():
-                        raise ValueError("Dataset id may contain only letters, digits and underscores")
-                    with (output / "raw" / (safe_id + ".csv")).open("w", newline="", encoding="utf-8") as handle:
-                        writer = csv.DictWriter(handle, fieldnames=["date", "value"])
-                        writer.writeheader()
-                        writer.writerows(rows)
-                    dates = sorted(r["date"] for r in rows)
-                    result.update(status="PASS", numeric_rows=len(rows), first_date=dates[0], last_date=dates[-1])
+                    result=test_spec(client,spec,start,end,output)
                 except Exception as exc:
-                    result.update(status="FAIL", reason=str(exc))
+                    result=dict(id=spec["id"],status="FAIL",reason=str(exc))
             report["results"].append(result)
-            print(f"  [{result['status']}] {spec['id']}", flush=True)
-            if result["status"] == "PASS":
-                print(f"  {len(rows):,} observations | {dates[0]} -> {dates[-1]}", flush=True)
-                print("  Latest 3 observations:", flush=True)
-                for row in sorted(rows, key=lambda r: r["date"])[-3:]:
-                    print(f"    {row['date']}: {row['value']}", flush=True)
-            else:
-                print("  " + result["reason"], flush=True)
+            show_result(result)
+            # Checkpoint after every dataset so interrupted runs retain completed work.
+            output.mkdir(parents=True,exist_ok=True)
+            (output/"bloomberg-report.json").write_text(json.dumps(report,indent=2,default=str)+"\n",encoding="utf-8")
     finally:
-        if session is not None:
-            session.stop()
-    (output / "bloomberg-report.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
-    from collections import Counter
-    counts = Counter(r["status"] for r in report["results"])
-    print("\nSUMMARY: " + " | ".join(f"{key}={value}" for key, value in counts.items()), flush=True)
-    print("Saved report: " + str(output / "bloomberg-report.json"), flush=True)
-    return 0 if all(r["status"] == "PASS" for r in report["results"]) else 1
+        if client is not None:
+            client.close()
+    report["known_gap"]="Assignment notes Canadian VIXC/VIXI gap in 2020-21. Separate series are never spliced or filled by this checker."
+    save_report(output,"bloomberg-report.json",report)
+    return report
 
-if __name__ == "__main__":
-    import sys
-    exit_code = main()
+def main(argv=None):
+    parser=argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--start",default="2010-01-01")
+    parser.add_argument("--end",default=yesterday())
+    parser.add_argument("--config",type=Path,default=ROOT/"bloomberg-series.json")
+    args=parser.parse_args(argv)
+    dt.date.fromisoformat(args.start)
+    dt.date.fromisoformat(args.end)
+    if args.start>args.end:
+        parser.error("Start date must precede end date")
+    report=run_checks(args.start,args.end,args.config)
+    return 0 if report["results"] and all(r["status"]=="PASS" for r in report["results"]) else 1
+
+if __name__=="__main__":
+    exit_code=main()
     if "IPython" not in sys.modules:
         raise SystemExit(exit_code)
