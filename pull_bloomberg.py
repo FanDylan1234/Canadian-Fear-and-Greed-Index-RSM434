@@ -21,18 +21,20 @@ def normalize_security(security):
     return security
 
 def eligible_field(spec, item):
-    text=(item.get("field","")+" "+item.get("description","")).lower()
+    text=(item.get("field","")+" "+item.get("description","")+" "+item.get("documentation","")).lower()
     if not all(term.lower() in text for term in spec.get("field_terms",[])):
         return False
     if spec.get("kind")!="count":
         return True
-    if re.search(r"percent|percentage|ratio|pct|volume|average|payment|grant|collection|account|covid",text):
+    if re.search(r"percent|percentage|ratio|pct|volume|average|payment|grant|collection|account|covid|minus|net|cumulative",text):
         return False
     # A mere occurrence of "advance" is not evidence of market breadth.
     return bool(re.search(r"\b(issues?|members?|stocks?|securities)\b",text.replace("_"," ")))
 
 def eligible_instrument(spec,item):
     text=normalize_security(item.get("security",""))+" "+item.get("description","")
+    if re.search(r"Venture",text,re.I):
+        return False
     if not re.search(r"TSX|Toronto",text,re.I):
         return False
     if not re.search(spec.get("instrument_pattern","."),text):

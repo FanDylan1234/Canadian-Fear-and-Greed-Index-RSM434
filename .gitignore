@@ -7,3 +7,6 @@ my-access-results/
 __pycache__/
 *.pyc
 node_modules/
+index-results/
+*.log
+.pytest_cache/

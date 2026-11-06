@@ -1,0 +1,13 @@
+{
+  "version": "baseline-v1-2026-11-06",
+  "display_start": "2010-01-01",
+  "history_start": "2008-01-01",
+  "train_end": "2019-12-31",
+  "rank_window": 252,
+  "rank_min_history": 126,
+  "minimum_components": 5,
+  "breadth_enabled": true,
+  "breadth_note": "Use only a verified TSX Composite pair. Legacy SPTSXADV/SPTSXDCL exports are TSX Venture and are excluded. Repair pulls pre-2010 warmup where available; actual coverage determines entry and equal weights.",
+  "refresh_seconds": 60,
+  "daily_refresh_minutes": 60
+}

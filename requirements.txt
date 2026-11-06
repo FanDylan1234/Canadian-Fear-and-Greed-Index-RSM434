@@ -1,0 +1,5 @@
+dash>=3.0,<4
+plotly>=6.0,<7
+pandas>=2.2,<3
+numpy>=1.26,<3
+tzdata>=2025.1

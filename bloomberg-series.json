@@ -25,10 +25,11 @@
   },
   {
     "id": "tsx_advancing",
-    "definition": "Daily count of advancing TSX issues; confirm TSX exchange universe versus Composite constituents.",
+    "definition": "Daily count of advancing S&P/TSX Composite constituents; not TSX Venture or all exchange listings.",
     "expected_start": "2010-01-01",
     "kind": "count",
     "security": "SPTSX Index",
+    "field": "INDX_ADV_NUM",
     "fields": [],
     "field_search": "number members advancing",
     "field_terms": [
@@ -36,15 +37,16 @@
     ],
     "instrument_search": "TSX advancing",
     "instrument_pattern": "(?i)(advanc|advances)",
-    "verified": false,
-    "review_note": "Field search on SPTSX may yield Composite-member counts; PDF says TSX. Confirm universe, daily counts and 52-week definition before accepting."
+    "verified": true,
+    "review_note": "2026-11-06 live API: SPTSX Index metadata identifies S&P/TSX Composite, INDX_ADV_NUM documentation identifies advancing members; paired history returned 2008-01-01 to 2026-11-05. User explicitly selected Composite universe."
   },
   {
     "id": "tsx_declining",
-    "definition": "Daily count of declining TSX issues; use the same universe as advancers.",
+    "definition": "Daily count of declining S&P/TSX Composite constituents, same universe as advancers.",
     "expected_start": "2010-01-01",
     "kind": "count",
     "security": "SPTSX Index",
+    "field": "INDX_DECL_NUM",
     "fields": [],
     "field_search": "number members declining",
     "field_terms": [
@@ -52,8 +54,8 @@
     ],
     "instrument_search": "TSX declining",
     "instrument_pattern": "(?i)(declin|declines)",
-    "verified": false,
-    "review_note": "Field search on SPTSX may yield Composite-member counts; PDF says TSX. Confirm universe, daily counts and 52-week definition before accepting."
+    "verified": true,
+    "review_note": "2026-11-06 live API: SPTSX Index metadata identifies S&P/TSX Composite, INDX_DECL_NUM documentation identifies declining members; paired history returned 2008-01-01 to 2026-11-05."
   },
   {
     "id": "tsx_52week_highs",

@@ -2,7 +2,35 @@
 
 RSM434H1F Financial Trading Strategies, Fall 2026. Industry Project 2; partner: Scotiabank.
 
-This repository currently contains data retrieval and access checks. The assignment's indicator selection, sentiment index, scoring, evaluation and backtest remain unfinished.
+This repository includes a local Dash dashboard and a daily Canadian sentiment index, with historical readings beginning in 2010. Bloomberg quotes are displayed separately from completed daily observations. The historical timeline is not a trading-strategy backtest.
+
+## Start the dashboard
+
+From the extracted project folder, using Python 3.10+:
+
+```powershell
+python -m pip install -r requirements.txt
+python app.py
+```
+
+Open http://127.0.0.1:8050 in your browser. On this workstation the prepared environment can be started with `.\.venv\Scripts\python.exe app.py`.
+
+Keep Bloomberg Terminal signed in and install Bloomberg's official `blpapi` in the same Python environment for live access. The app polls TSX Composite and VIXI quotes every 60 seconds, refreshes daily inputs hourly, and provides a **Refresh data** button. History is limited to yesterday in Toronto; live quotes cannot overwrite it. If a refresh fails, the app retains cached inputs and reports the error. Public options and US VIX history come from Montreal Exchange and FRED.
+
+Use `python app.py --offline` to view existing cached inputs without network access, or `python update_index.py --refresh` to refresh and build without starting the dashboard. A fresh clone contains no licensed data: run the data-access checks below to discover the remaining Bloomberg mappings, then refresh. Review the reported definitions before using the research preview as a final index.
+
+### Historical timeline and coverage
+
+- **Composite correction:** advancing and declining counts use `SPTSX Index / INDX_ADV_NUM` and `SPTSX Index / INDX_DECL_NUM`. The November 6 terminal pull returned both from January 2008. The former TSX Venture exports and their apparent 2015 limitation are excluded.
+- **2010 start:** pre-2010 inputs provide scoring warmup where available. The verified local build starts January 4, 2010. Options history starts in 2011 and also requires warmup; early volatility coverage depends on available history and warmup.
+- **Seven components:** momentum, new highs minus lows, advancing/declining breadth, put/call, volatility, credit spreads, and stock-minus-bond total returns. Each signal is ranked against up to 252 prior TSX sessions, requiring 126 finite prior readings. Higher scores mean greater greed.
+- **Equal weights:** each available component receives `1 / number available`; missing components receive zero. At least five are required to publish a score. The Data & weights tab reports exact allocations for a chosen date; Timeline plots the changes.
+- **Volatility:** VIXC and VIXI are ranked separately. US VIX is a labelled fallback during Canadian gaps, stale runs and warmup. No missing observations are forward-filled.
+- **Research limits:** some Bloomberg definitions still require review. Canadian investment-grade OAS and Canada Aggregate bond returns are documented proxies. Historical data can be revised; this is not a point-in-time vintage archive.
+
+Outputs in `index-results/` include history (scores and weights), raw signals, coverage, weight changes and a source-hash manifest. CSV downloads are available in the dashboard. Licensed input and derived data stay excluded from Git.
+
+The access-check notes below describe earlier checkpoints; consult current dashboard coverage and refresh timestamps for the latest state.
 
 ## Run everything in Spyder
 
