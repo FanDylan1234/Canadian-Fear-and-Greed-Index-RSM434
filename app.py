@@ -171,4 +171,5 @@ if __name__ == "__main__":
     parser.add_argument("--offline", action="store_true", help="Use cached sources without network requests")
     parser.add_argument("--port", type=int, default=8050)
     args = parser.parse_args()
+    print(f"\nCanadian Fear & Greed Index\nOpen in your browser: http://127.0.0.1:{args.port}\nKeep this terminal open. Press Ctrl+C to stop.\n", flush=True)
     create_app(offline=args.offline, start_worker=True).run(host="127.0.0.1", port=args.port, debug=False)
