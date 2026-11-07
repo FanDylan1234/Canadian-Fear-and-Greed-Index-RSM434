@@ -57,8 +57,13 @@ def find_python():
 
 def prepare_environment():
     """Install and validate the declared versions in the project environment."""
+    uv = shutil.which("uv")
     if not PYTHON.exists():
-        subprocess.run(find_python() + ["-m", "venv", str(ENVIRONMENT)], check=True)
+        base = find_python()
+        print(f"Creating .venv with {' '.join(base)}...", flush=True)
+        subprocess.run(
+            base + ["-m", "venv", "--without-pip", str(ENVIRONMENT)], check=True
+        )
     if not supported([str(PYTHON)]):
         raise RuntimeError(
             "The existing .venv is unusable or unsupported. Rename .venv and run again to create a fresh environment."
@@ -81,11 +86,33 @@ for module in ('dash', 'flask', 'pandas', 'numpy', 'plotly', 'tzdata'):
     if subprocess.run(
         [str(PYTHON), "-c", probe], cwd=ROOT, capture_output=True
     ).returncode:
-        subprocess.run([str(PYTHON), "-m", "ensurepip", "--upgrade"], check=True)
-        subprocess.run(
-            [str(PYTHON), "-m", "pip", "install", "-r", str(ROOT / "requirements.txt")],
-            check=True,
+        requirements = str(ROOT / "requirements.txt")
+        print(
+            "Installing project packages. First setup may take a few minutes.",
+            flush=True,
         )
+        if uv:
+            installed = subprocess.run(
+                [
+                    uv,
+                    "pip",
+                    "install",
+                    "--python",
+                    str(PYTHON),
+                    "-r",
+                    requirements,
+                    "pip",
+                    "--no-cache",
+                ],
+            ).returncode == 0
+            if not installed:
+                print("uv setup failed. Trying pip instead...", flush=True)
+        if not uv or not installed:
+            pip = [str(PYTHON), "-m", "pip"]
+            if subprocess.run(pip + ["--version"], capture_output=True).returncode:
+                print("Initializing pip in .venv...", flush=True)
+                subprocess.run([str(PYTHON), "-m", "ensurepip"], check=True)
+            subprocess.run(pip + ["install", "-r", requirements], check=True)
         subprocess.run([str(PYTHON), "-c", probe], cwd=ROOT, check=True)
 
 
@@ -100,6 +127,12 @@ def run(script="app.py", arguments=None):
             cwd=ROOT,
             env=environment,
         )
+    except KeyboardInterrupt:
+        print(
+            "\nStopped. Run the same command to resume setup or restart the app.",
+            file=sys.stderr,
+        )
+        return 130
     except (OSError, RuntimeError, subprocess.CalledProcessError) as error:
         print("Startup failed. " + str(error), file=sys.stderr)
         return 1
@@ -122,3 +155,4 @@ def main():
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
