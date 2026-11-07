@@ -1,18 +1,10 @@
-"""Run all project data access checks. Spyder: open this file and press F5.
-Keep all extracted repository files together.
-"""
+"""Check source access and write a coverage report."""
 import datetime as dt
-import importlib
 from pathlib import Path
 import sys
 
-ROOT=Path(__file__).resolve().parent
-# Prefer this extracted checkout over a previously imported copy in Spyder.
-sys.path.insert(0,str(ROOT))
-for name in ("data_checks","pull_data","pull_bloomberg"):
-    sys.modules.pop(name,None)
-importlib.invalidate_caches()
-from data_checks import yesterday, save_report
+ROOT=Path(__file__).resolve().parents[1]
+from fgindex.data_checks import yesterday, save_report
 
 def main(start="2010-01-01",end=None):
     end=end or yesterday()
@@ -21,8 +13,8 @@ def main(start="2010-01-01",end=None):
     if start>end:
         raise ValueError("Start date must precede end date")
     print("\nALL PROJECT DATA CHECKS: "+start+" -> "+end,flush=True)
-    from pull_data import main as public_checks
-    from pull_bloomberg import run_checks
+    from fgindex.pull_data import main as public_checks
+    from fgindex.pull_bloomberg import run_checks
     output=ROOT/"data-access-results"
     public=public_checks(output,start,end)
     bloomberg=run_checks(start,end,output=output)

@@ -1,10 +1,5 @@
 """Dashboard pages, user controls, and downloadable reports."""
 
-if __name__ == "__main__":
-    from start import bootstrap
-
-    bootstrap("app.py")
-
 import argparse
 import datetime as dt
 from zoneinfo import ZoneInfo
@@ -501,7 +496,7 @@ def create_app(offline=False, start_worker=False, service=None):
                     [
                         html.H2("Waiting for source history"),
                         html.P(
-                            "Run python update_index.py --refresh on the signed-in Bloomberg workstation, then refresh this page."
+                            "Run python start.py --update --refresh on the signed-in Bloomberg workstation, then refresh this page."
                         ),
                         html.Code(status),
                     ],

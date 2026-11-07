@@ -11,7 +11,7 @@ from pathlib import Path
 import re
 import sys
 import time
-from data_checks import ROOT, yesterday, check_history, show_result, save_report
+from fgindex.data_checks import ROOT, yesterday, check_history, show_result, save_report
 
 
 def normalize_security(security):
