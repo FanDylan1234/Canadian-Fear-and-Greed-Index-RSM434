@@ -36,8 +36,8 @@ def comparison(history):
     date = history.index[-1]
     rows = []
     for label, target in [
-        ("Previous close", date - pd.Timedelta(days=1)),
-        ("1 week ago", date - pd.Timedelta(days=7)),
+        ("Previous close", date - pd.DateOffset(days=1)),
+        ("1 week ago", date - pd.DateOffset(days=7)),
         ("1 month ago", date - pd.DateOffset(months=1)),
         ("1 year ago", date - pd.DateOffset(years=1)),
     ]:
