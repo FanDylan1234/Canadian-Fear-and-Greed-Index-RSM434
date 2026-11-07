@@ -72,6 +72,19 @@ def overview(result):
     for number, (key, (title, subtitle, rationale)) in enumerate(COMPONENTS.items(), 1):
         value = result.scores[key].iloc[-1]
         weight = result.weights[key].iloc[-1]
+        score_date = result.history.index[-1]
+        note = "Percentile uses only prior observations."
+        if pd.isna(value):
+            note = "Unavailable or warming up: excluded and reweighted."
+            available = result.scores[key].dropna()
+            if key == "options" and not available.empty:
+                value = available.iloc[-1]
+                score_date = available.index[-1]
+                note = (
+                    f"Latest published score as of {score_date:%b %d, %Y}. "
+                    f"No score for {result.history.index[-1]:%b %d, %Y}; "
+                    "excluded from that day's index."
+                )
         cards.append(
             html.Article(
                 [
@@ -98,6 +111,7 @@ def overview(result):
                                                 else "—"
                                             ),
                                             html.Span(" / 100"),
+                                            html.Small(f"As of {score_date:%b %d, %Y}"),
                                         ],
                                         className="component-score",
                                     ),
@@ -107,9 +121,7 @@ def overview(result):
                                         className="weight-label",
                                     ),
                                     html.Small(
-                                        "Unavailable or warming up: excluded and reweighted."
-                                        if pd.isna(value)
-                                        else "Percentile uses only prior observations."
+                                        note
                                     ),
                                 ],
                                 className="indicator-explanation",
