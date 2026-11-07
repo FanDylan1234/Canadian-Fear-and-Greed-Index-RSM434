@@ -20,6 +20,7 @@ class DashboardService:
         self.quote = None
         self.quote_error = "Offline mode" if offline else "Awaiting first quote"
         self.refreshing = False
+        self.refresh_error = None
         self.rebuild()
 
     def rebuild(self):
@@ -30,6 +31,8 @@ class DashboardService:
         except Exception as exc:
             with self.lock:
                 self.status = "Build unavailable: " + str(exc)
+                if self.refresh_error:
+                    self.status += " | Source errors: " + self.refresh_error
 
     def snapshot(self):
         with self.lock:
@@ -74,6 +77,7 @@ class DashboardService:
                 try:
                     report = refresh_daily(self.raw_dir)
                     with self.lock:
+                        self.refresh_error = " | ".join(report["errors"]) or None
                         self.status = report["status"] + (
                             " · " + " | ".join(report["errors"][:3])
                             if report["errors"]
