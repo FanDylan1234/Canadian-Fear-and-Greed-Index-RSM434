@@ -145,13 +145,26 @@ class DashboardTests(unittest.TestCase):
 
     def test_all_dashboard_callbacks(self):
         key = next(iter(self.app.callback_map))
-        outputs = [{"id": name, "property": prop} for name, prop in [("page-content", "children"), ("status-banner", "children"), ("quote-strip", "children"), ("date-controls", "style"), ("refresh-button", "disabled")]]
+        outputs = [{"id": name, "property": prop} for name, prop in [("page-content", "children"), ("status-banner", "children"), ("quote-strip", "children"), ("date-controls", "style"), ("refresh-button", "disabled"), ("render-key", "data")]]
         for view in ("overview", "timeline", "data", "methodology"):
             inputs = [{"id": name, "property": prop, "value": val} for name, prop, val in [("view", "value", view), ("ui-tick", "n_intervals", 0), ("refresh-button", "n_clicks", 0), ("date-range", "start_date", "2010-01-01"), ("date-range", "end_date", "2012-12-31"), ("weight-date", "date", "2011-01-01")]]
-            response = self.client.post("/_dash-update-component", json={"output": key, "outputs": outputs, "inputs": inputs, "state": [], "changedPropIds": ["view.value"]})
+            response = self.client.post("/_dash-update-component", json={"output": key, "outputs": outputs, "inputs": inputs, "state": [{"id":"render-key","property":"data","value":None}], "changedPropIds": ["view.value"]})
             self.assertEqual(response.status_code, 200, response.data[:300])
             self.assertIn("page-content", response.json["response"])
+            rendered = response.json["response"]
+            if view in ("timeline", "data"):
+                control_style = rendered["date-controls"]["style"]
+                self.assertEqual(control_style["--timeline-display"], "flex" if view == "timeline" else "none")
+                self.assertEqual(control_style["--weights-display"], "flex" if view == "data" else "none")
+            unchanged = self.client.post("/_dash-update-component", json={
+                "output": key, "outputs": outputs, "inputs": inputs,
+                "state": [{"id":"render-key","property":"data","value":rendered["render-key"]["data"]}],
+                "changedPropIds":["ui-tick.n_intervals"],
+            })
+            self.assertEqual(unchanged.status_code, 200)
+            self.assertNotIn("page-content", unchanged.json["response"])
 
 
 if __name__ == "__main__":
     unittest.main()
+
