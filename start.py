@@ -116,10 +116,35 @@ for module in ('dash', 'flask', 'pandas', 'numpy', 'plotly', 'tzdata'):
         subprocess.run([str(PYTHON), "-c", probe], cwd=ROOT, check=True)
 
 
+def prepare_bloomberg():
+    """Install the Desktop API from Bloomberg's official package repository."""
+    probe = [str(PYTHON), "-c", "import blpapi"]
+    if subprocess.run(probe, capture_output=True).returncode == 0:
+        return
+    print("Installing Bloomberg API into the project environment...", flush=True)
+    pip = [str(PYTHON), "-m", "pip"]
+    if subprocess.run(pip + ["--version"], capture_output=True).returncode:
+        subprocess.run([str(PYTHON), "-m", "ensurepip"], check=True)
+    subprocess.run(
+        pip + ["install", "--upgrade", "--index-url",
+               "https://blpapi.bloomberg.com/repository/releases/python/simple/",
+               "blpapi"], check=True
+    )
+    subprocess.run(probe, check=True)
+
+
 def run(module="app", arguments=None):
     """Launch a project entry point with packages installed in the same Python."""
     try:
         prepare_environment()
+        arguments = arguments or []
+        needs_bloomberg = (
+            (module == "app" and "--offline" not in arguments)
+            or (module == "update_index" and "--refresh" in arguments)
+            or module in ("run_all_checks", "repair_breadth")
+        )
+        if needs_bloomberg:
+            prepare_bloomberg()
         return subprocess.call(
             [str(PYTHON), "-u", "-m", f"fgindex.{module}", *(arguments or [])],
             cwd=ROOT,
