@@ -9,9 +9,9 @@ import math
 from pathlib import Path
 import urllib.request
 from collections import Counter
-from data_checks import yesterday, check_history
+from fgindex.data_checks import yesterday, check_history
 
-ROOT = Path(__file__).resolve().parent
+ROOT = Path(__file__).resolve().parents[1]
 OUTPUT = ROOT / "data-access-results"
 BOC = "BD.CDN.10YR.DQ.YLD"
 SOURCES = [

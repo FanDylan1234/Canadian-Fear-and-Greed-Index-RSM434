@@ -5,8 +5,8 @@ from pathlib import Path
 import pandas as pd
 from fgindex.data import ROOT
 from fgindex.pipeline import atomic_text
-from pull_bloomberg import BloombergClient
-from data_checks import yesterday, check_history
+from fgindex.pull_bloomberg import BloombergClient
+from fgindex.data_checks import yesterday, check_history
 
 # These candidates are evidenced in the project's saved Bloomberg field/security search.
 PAIRS = [

@@ -116,16 +116,13 @@ for module in ('dash', 'flask', 'pandas', 'numpy', 'plotly', 'tzdata'):
         subprocess.run([str(PYTHON), "-c", probe], cwd=ROOT, check=True)
 
 
-def run(script="app.py", arguments=None):
+def run(module="app", arguments=None):
     """Launch a project entry point with packages installed in the same Python."""
     try:
         prepare_environment()
-        environment = os.environ.copy()
-        environment["FG_PROJECT_PYTHON"] = str(PYTHON.resolve())
         return subprocess.call(
-            [str(PYTHON), "-u", str(ROOT / script), *(arguments or [])],
+            [str(PYTHON), "-u", "-m", f"fgindex.{module}", *(arguments or [])],
             cwd=ROOT,
-            env=environment,
         )
     except KeyboardInterrupt:
         print(
@@ -138,21 +135,21 @@ def run(script="app.py", arguments=None):
         return 1
 
 
-def bootstrap(script):
-    """Route direct VS Code Run and terminal execution through setup once."""
-    if os.environ.get("FG_PROJECT_PYTHON") != str(Path(sys.executable).resolve()):
-        raise SystemExit(run(script, sys.argv[1:]))
-
-
 def main():
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "--update", action="store_true", help="Build daily index outputs"
+    parser = argparse.ArgumentParser(
+        description="Open the dashboard. Optional modes run without a browser.",
+        epilog="Dashboard options: --offline, --port PORT. Pipeline option: --refresh.",
     )
+    modes = parser.add_mutually_exclusive_group()
+    modes.add_argument("--update", dest="module", action="store_const",
+                       const="update_index", help="Build and export the daily index")
+    modes.add_argument("--check-data", dest="module", action="store_const",
+                       const="run_all_checks", help="Diagnose source access")
+    modes.add_argument("--repair-breadth", dest="module", action="store_const",
+                       const="repair_breadth", help="Replace legacy breadth data")
     args, remaining = parser.parse_known_args()
-    return run("update_index.py" if args.update else "app.py", remaining)
+    return run(args.module or "app", remaining)
 
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

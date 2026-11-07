@@ -34,7 +34,7 @@ def build(raw_dir=None, output=None, config=None):
     config = config or load_config()
     inputs, coverage = read_inputs(raw_dir, config)
     # Today's unfinished daily observations are never admitted to the research history.
-    from data_checks import yesterday
+    from fgindex.data_checks import yesterday
 
     inputs = inputs.loc[inputs.index <= pd.Timestamp(yesterday())]
     result = build_index(inputs, config)

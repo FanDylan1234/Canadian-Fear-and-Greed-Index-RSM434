@@ -1,10 +1,5 @@
 """One command: refresh sources, construct index, save diagnostics and chart."""
 
-if __name__ == "__main__":
-    from start import bootstrap
-
-    bootstrap("update_index.py")
-
 import argparse
 from pathlib import Path
 from fgindex.data import ROOT, load_config

@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 import numpy as np
 import pandas as pd
-from pull_data import parse
+from fgindex.pull_data import parse
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -117,6 +117,6 @@ def read_inputs(raw_dir, config):
     frame = frame.sort_index()
     if frame.tsx_price.notna().sum() == 0:
         raise ValueError(
-            "No TSX price history. Run python update_index.py --refresh on the Bloomberg workstation."
+            "No TSX price history. Run python start.py --update --refresh on the Bloomberg workstation."
         )
     return frame, coverage

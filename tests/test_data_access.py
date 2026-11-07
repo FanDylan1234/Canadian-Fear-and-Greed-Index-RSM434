@@ -11,8 +11,8 @@ import tempfile
 import unittest
 
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
-from data_checks import check_history
-from pull_bloomberg import test_spec, run_checks, BloombergClient, normalize_security, candidate_pairs
+from fgindex.data_checks import check_history
+from fgindex.pull_bloomberg import test_spec, run_checks, BloombergClient, normalize_security, candidate_pairs
 
 def rows(start,end,value=20):
     result=[]

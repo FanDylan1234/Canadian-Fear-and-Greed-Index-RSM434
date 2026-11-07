@@ -122,7 +122,7 @@ class IndexTests(unittest.TestCase):
 class DashboardTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        from app import create_app
+        from fgindex.app import create_app
         from fgindex.pipeline import build
         from fgindex.service import DashboardService
         # Fully offline deterministic inputs; no dependency on licensed local exports.

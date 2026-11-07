@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 from collections import Counter
 
-ROOT = Path(__file__).resolve().parent
+ROOT = Path(__file__).resolve().parents[1]
 
 def yesterday():
     # Completed calendar date in Toronto; intraday current-day data is excluded.

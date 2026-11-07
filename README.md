@@ -1,5 +1,5 @@
 # Canadian Fear and Greed Index
-RSM434 Financial Trading Strategies · University of Toronto · Scotiabank industry project
+RSM434 Financial Trading Strategies Â· University of Toronto Â· Scotiabank industry project
 
 ## Start here
 Keep the extracted project folder together. Open it in VS Code and run this command in a PowerShell terminal:
@@ -8,21 +8,22 @@ Keep the extracted project folder together. Open it in VS Code and run this comm
 python start.py
 ```
 
-Open http://127.0.0.1:8050 and keep the terminal open. Python 3.10–3.13 is supported. Python 3.12 is recommended.
+Open http://127.0.0.1:8050 and keep the terminal open. Python 3.10â€“3.13 is supported. Python 3.12 is recommended.
 The launcher finds a supported interpreter, creates a local .venv, and installs the required package versions there.
-Running app.py or update_index.py directly also uses this setup.
+This is the only script you need to run. The dashboard refreshes sources and builds the index when it starts. Use **Refresh data** to request another refresh.
 
 In VS Code, select **Python: Select Interpreter**, then choose **.venv/Scripts/python.exe**.
 Package installation and execution must use the same interpreter. Packages installed in Anaconda are separate from Python 3.14.
-The **fgindex** folder contains our own Python code. Keep it with the scripts.
+The **fgindex** folder contains the project code. Keep it beside **start.py**.
 
-## Common commands
+## Optional commands
 | Task | PowerShell command |
 |---|---|
-| Open the dashboard | `python start.py` |
 | Use cached data | `python start.py --offline` |
 | Refresh data and build outputs | `python start.py --update --refresh` |
 | Rebuild from cached data | `python start.py --update` |
+| Diagnose data access | `python start.py --check-data` |
+| Replace older breadth exports | `python start.py --repair-breadth` |
 | Run validation tests after setup | `.\.venv\Scripts\python.exe -m unittest discover -s tests -v` |
 
 The first setup needs internet access to install packages, including when --offline is selected.
@@ -41,12 +42,7 @@ Some source definitions still need review. Consult the Data & weights page befor
 | File or folder | Purpose |
 |---|---|
 | start.py | Finds Python, installs packages, and launches the chosen task |
-| app.py | Dashboard pages and controls |
-| update_index.py | Refreshes sources and saves the calculated index |
-| fgindex/ | Shared calculations, input loading, charts, and refresh coordination |
-| pull_data.py / pull_bloomberg.py | Public-source and Bloomberg download routines |
-| data_checks.py / run_all_checks.py | Data validation and a standalone diagnostic runner |
-| repair_breadth.py | Replaces legacy breadth exports with verified Composite counts |
+| fgindex/ | Dashboard, index calculations, data downloads, and diagnostics |
 | index-config.json | Scoring windows and publication rules |
 | bloomberg-series.json | Bloomberg securities, fields, and verification flags |
 | requirements.txt | Required Python packages and allowed versions |
