@@ -103,7 +103,7 @@ def gauge(value):
     fig.add_annotation(
         x=0,
         y=-0.21,
-        text=f"<b>{value:.0f}</b>" if pd.notna(value) else "â€”",
+        text=f"<b>{value:.0f}</b>" if pd.notna(value) else "\u2014",
         showarrow=False,
         font=dict(size=50, color="#16191d"),
     )
