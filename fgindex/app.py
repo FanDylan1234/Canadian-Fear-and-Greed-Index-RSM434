@@ -496,7 +496,7 @@ def create_app(offline=False, start_worker=False, service=None):
                     [
                         html.H2("Waiting for source history"),
                         html.P(
-                            "Run python start.py --update --refresh on the signed-in Bloomberg workstation, then refresh this page."
+                            "The first download is running. This page updates automatically." if busy else "Source history is unavailable. Check the error below, sign into Bloomberg Terminal, then click Refresh data."
                         ),
                         html.Code(status),
                     ],
