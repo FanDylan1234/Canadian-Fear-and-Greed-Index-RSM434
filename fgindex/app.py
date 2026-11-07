@@ -54,7 +54,7 @@ def comparison(history):
                         [html.Strong(label), html.Small(dated), html.Div(regime(value))]
                     ),
                     html.Span(
-                        f"{value:.0f}" if pd.notna(value) else "â€”",
+                        f"{value:.0f}" if pd.notna(value) else "\u2014",
                         className="round-score",
                         style={"backgroundColor": color(value)},
                     ),
@@ -108,7 +108,7 @@ def overview(result):
                                             html.Strong(
                                                 f"{value:.1f}"
                                                 if pd.notna(value)
-                                                else "â€”"
+                                                else "\u2014"
                                             ),
                                             html.Span(" / 100"),
                                             html.Small(f"As of {score_date:%b %d, %Y}"),
@@ -138,7 +138,7 @@ def overview(result):
                     [
                         dcc.Graph(figure=gauge(latest["index"]), config=GRAPH_CONFIG),
                         html.P(
-                            f"Daily observation Â· {history.index[-1]:%b %d, %Y}",
+                            f"Daily observation \xb7 {history.index[-1]:%b %d, %Y}",
                             className="chart-caption",
                         ),
                     ]
@@ -168,9 +168,9 @@ def timeline(result, start, end):
     frame = result.history.loc[start:end]
     valid = frame["index"].dropna()
     stats = [
-        ("Lowest reading", f"{valid.min():.1f}" if len(valid) else "â€”"),
-        ("Highest reading", f"{valid.max():.1f}" if len(valid) else "â€”"),
-        ("Average reading", f"{valid.mean():.1f}" if len(valid) else "â€”"),
+        ("Lowest reading", f"{valid.min():.1f}" if len(valid) else "\u2014"),
+        ("Highest reading", f"{valid.max():.1f}" if len(valid) else "\u2014"),
+        ("Average reading", f"{valid.mean():.1f}" if len(valid) else "\u2014"),
         ("Sessions with a score", f"{len(valid):,}"),
     ]
     return [
@@ -178,7 +178,7 @@ def timeline(result, start, end):
             [
                 html.H2("Sentiment over time"),
                 html.A(
-                    "Download history â†“",
+                    "Download history \u2193",
                     href="/download/history.csv",
                     className="text-link",
                 ),
@@ -246,9 +246,9 @@ def coverage_view(result, manifest, selected_date):
                     .replace("fred", "FRED")
                     .title(),
                     (r["security"] or "") + " / " + (r["field"] or ""),
-                    r["first"] or "â€”",
-                    r["last"] or "â€”",
-                    r["status"] + (" Â· definition review" if r["review"] else ""),
+                    r["first"] or "\u2014",
+                    r["last"] or "\u2014",
+                    r["status"] + (" \xb7 definition review" if r["review"] else ""),
                 ]
                 for r in manifest["coverage"]
             ],
@@ -262,8 +262,8 @@ def coverage_view(result, manifest, selected_date):
         table(["Component", "Score", "Weight"], rows),
         html.Div(
             [
-                html.A("Download weights â†“", href="/download/weights.csv"),
-                html.A("Download coverage â†“", href="/download/coverage.csv"),
+                html.A("Download weights \u2193", href="/download/weights.csv"),
+                html.A("Download coverage \u2193", href="/download/coverage.csv"),
             ],
             className="download-links",
         ),
@@ -280,10 +280,10 @@ def methodology(config):
         table(
             ["Score", "Sentiment"],
             [
-                ["0â€“24", "Extreme fear"],
-                ["25â€“44", "Fear"],
-                ["45â€“55", "Neutral"],
-                ["Above 55â€“75", "Greed"],
+                ["0\u201324", "Extreme fear"],
+                ["25\u201344", "Fear"],
+                ["45\u201355", "Neutral"],
+                ["Above 55\u201375", "Greed"],
                 ["Above 75", "Extreme greed"],
             ],
         ),
@@ -446,7 +446,7 @@ def create_app(offline=False, start_worker=False, service=None):
                     html.Footer(
                         [
                             html.Strong("Canadian Fear & Greed Index"),
-                            html.Span("Bloomberg Â· MontrÃ©al Exchange Â· FRED"),
+                            html.Span("Bloomberg \xb7 Montr\xe9al Exchange \xb7 FRED"),
                         ]
                     ),
                 ],
@@ -512,7 +512,7 @@ def create_app(offline=False, start_worker=False, service=None):
         ).days
         banner = []
         if busy:
-            banner = [html.Span("Updating dataâ€¦")]
+            banner = [html.Span("Updating data\u2026")]
         elif age > 4:
             banner = [
                 html.Span(
