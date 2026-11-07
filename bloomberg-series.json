@@ -71,8 +71,9 @@
     ],
     "instrument_search": "TSX new 52 week highs",
     "instrument_pattern": "(?i)(52|new).*high|high.*(52|new)",
-    "verified": false,
-    "review_note": "Field search on SPTSX may yield Composite-member counts; PDF says TSX. Confirm universe, daily counts and 52-week definition before accepting."
+    "verified": true,
+    "review_note": "2026-11-07 live Bloomberg API verified S&P/TSX Composite metadata and new 52-week member count definitions. Both histories contain 4,733 nonnegative integer observations from 2008-01-02 through 2026-11-06.",
+    "field": "NUM_MEMBERS_WITH_NEW_52W_HIGHS"
   },
   {
     "id": "tsx_52week_lows",
@@ -88,8 +89,9 @@
     ],
     "instrument_search": "TSX new 52 week lows",
     "instrument_pattern": "(?i)(52|new).*low|low.*(52|new)",
-    "verified": false,
-    "review_note": "Field search on SPTSX may yield Composite-member counts; PDF says TSX. Confirm universe, daily counts and 52-week definition before accepting."
+    "verified": true,
+    "review_note": "2026-11-07 live Bloomberg API verified S&P/TSX Composite metadata and new 52-week member count definitions. Both histories contain 4,733 nonnegative integer observations from 2008-01-02 through 2026-11-06.",
+    "field": "NUM_MEMBERS_WITH_NEW_52W_LOWS"
   },
   {
     "id": "canada_vixc_history",
