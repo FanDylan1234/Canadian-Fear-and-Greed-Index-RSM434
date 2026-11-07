@@ -2,7 +2,7 @@
 
 import argparse
 import datetime as dt
-from zoneinfo import ZoneInfo
+import json
 import pandas as pd
 from dash import Dash, Input, Output, State, ctx, dcc, html, no_update
 from flask import abort, send_file
@@ -54,7 +54,7 @@ def comparison(history):
                         [html.Strong(label), html.Small(dated), html.Div(regime(value))]
                     ),
                     html.Span(
-                        f"{value:.0f}" if pd.notna(value) else "—",
+                        f"{value:.0f}" if pd.notna(value) else "â€”",
                         className="round-score",
                         style={"backgroundColor": color(value)},
                     ),
@@ -73,18 +73,18 @@ def overview(result):
         value = result.scores[key].iloc[-1]
         weight = result.weights[key].iloc[-1]
         score_date = result.history.index[-1]
-        note = "Percentile uses only prior observations."
+        note = ""
         if pd.isna(value):
-            note = "Unavailable or warming up: excluded and reweighted."
+            note = "Waiting for enough source history."
             available = result.scores[key].dropna()
             if key == "options" and not available.empty:
                 value = available.iloc[-1]
                 score_date = available.index[-1]
                 note = (
-                    f"Latest published score as of {score_date:%b %d, %Y}. "
-                    f"No score for {result.history.index[-1]:%b %d, %Y}; "
-                    "excluded from that day's index."
+                    f"Publication delay. Latest score from {score_date:%b %d}. "
+                    "Excluded from the current index until new data arrives."
                 )
+
         cards.append(
             html.Article(
                 [
@@ -108,7 +108,7 @@ def overview(result):
                                             html.Strong(
                                                 f"{value:.1f}"
                                                 if pd.notna(value)
-                                                else "—"
+                                                else "â€”"
                                             ),
                                             html.Span(" / 100"),
                                             html.Small(f"As of {score_date:%b %d, %Y}"),
@@ -120,9 +120,7 @@ def overview(result):
                                         f"Current index weight: {weight:.2%}",
                                         className="weight-label",
                                     ),
-                                    html.Small(
-                                        note
-                                    ),
+                                    html.Small(note),
                                 ],
                                 className="indicator-explanation",
                             ),
@@ -140,7 +138,7 @@ def overview(result):
                     [
                         dcc.Graph(figure=gauge(latest["index"]), config=GRAPH_CONFIG),
                         html.P(
-                            f"Daily observation · {history.index[-1]:%b %d, %Y}",
+                            f"Daily observation Â· {history.index[-1]:%b %d, %Y}",
                             className="chart-caption",
                         ),
                     ]
@@ -151,7 +149,7 @@ def overview(result):
         ),
         html.Div(
             [
-                html.H2("The indicators behind the index"),
+                html.H2("Market indicators"),
                 html.Span(
                     f"{int(latest.active_components)} of 7 available", className="pill"
                 ),
@@ -159,7 +157,7 @@ def overview(result):
             className="section-heading",
         ),
         html.P(
-            "Every available indicator has the same weight. Select Timeline to explore past readings and changing coverage.",
+            "Available indicators are equally weighted.",
             className="muted",
         ),
         *cards,
@@ -170,17 +168,17 @@ def timeline(result, start, end):
     frame = result.history.loc[start:end]
     valid = frame["index"].dropna()
     stats = [
-        ("Lowest reading", f"{valid.min():.1f}" if len(valid) else "—"),
-        ("Highest reading", f"{valid.max():.1f}" if len(valid) else "—"),
-        ("Average reading", f"{valid.mean():.1f}" if len(valid) else "—"),
+        ("Lowest reading", f"{valid.min():.1f}" if len(valid) else "â€”"),
+        ("Highest reading", f"{valid.max():.1f}" if len(valid) else "â€”"),
+        ("Average reading", f"{valid.mean():.1f}" if len(valid) else "â€”"),
         ("Sessions with a score", f"{len(valid):,}"),
     ]
     return [
         html.Div(
             [
-                html.H2("A history of Canadian market sentiment"),
+                html.H2("Sentiment over time"),
                 html.A(
-                    "Download history ↓",
+                    "Download history â†“",
                     href="/download/history.csv",
                     className="text-link",
                 ),
@@ -188,7 +186,7 @@ def timeline(result, start, end):
             className="section-heading",
         ),
         html.P(
-            "Historical index readings from 2010. Hover to inspect the score, available components and volatility source. Gaps remain visible.",
+            "Daily readings since 2010.",
             className="muted",
         ),
         dcc.Graph(
@@ -202,31 +200,17 @@ def timeline(result, start, end):
             ],
             className="stats-grid",
         ),
-        html.H3("How the weights changed"),
+        html.H3("Indicator weights"),
         html.P(
-            "Missing inputs receive 0%; their allocation is divided equally across available components. A minimum of five is required.",
+            "Weights adjust when an indicator is missing. At least five indicators are required.",
             className="muted",
         ),
         dcc.Graph(
             figure=weights_chart(result.weights.loc[start:end]), config=GRAPH_CONFIG
         ),
-        html.H3("Read the history with its limits"),
-        html.Ul(
-            [
-                html.Li(
-                    "2010: options history is unavailable. Early dates may also need pre-2010 data to warm up the scoring windows."
-                ),
-                html.Li(
-                    "Breadth uses verified TSX Composite data only. Legacy TSX Venture exports are excluded, including their apparent 2015 start."
-                ),
-                html.Li(
-                    "Canadian volatility has a 2020–21 gap. US VIX is a labelled fallback during gaps, stale runs and Canadian-series warmup."
-                ),
-                html.Li(
-                    "Changing component sets and volatility definitions affect comparability across time. This is a sentiment timeline, not trading returns."
-                ),
-            ],
-            className="notes",
+        html.P(
+            "See Methodology for coverage gaps and source definitions.",
+            className="muted",
         ),
     ]
 
@@ -247,20 +231,24 @@ def coverage_view(result, manifest, selected_date):
                 ]
             )
     return [
-        html.H2("Data coverage & allocations"),
+        html.H2("Source coverage"),
         html.P(
-            "Observed source dates are reported below. A successful numeric download does not, by itself, verify the series definition.",
+            "History available for each source. Definitions awaiting review are marked below.",
             className="muted",
         ),
         table(
             ["Dataset", "Bloomberg mapping", "First observation", "Latest", "Status"],
             [
                 [
-                    r["dataset"],
-                    r["security"] + " / " + r["field"],
-                    r["first"] or "—",
-                    r["last"] or "—",
-                    r["status"] + (" · definition review" if r["review"] else ""),
+                    r["dataset"]
+                    .replace("_", " ")
+                    .replace("tsx", "TSX")
+                    .replace("fred", "FRED")
+                    .title(),
+                    (r["security"] or "") + " / " + (r["field"] or ""),
+                    r["first"] or "â€”",
+                    r["last"] or "â€”",
+                    r["status"] + (" Â· definition review" if r["review"] else ""),
                 ]
                 for r in manifest["coverage"]
             ],
@@ -274,8 +262,8 @@ def coverage_view(result, manifest, selected_date):
         table(["Component", "Score", "Weight"], rows),
         html.Div(
             [
-                html.A("Download weights ↓", href="/download/weights.csv"),
-                html.A("Download coverage ↓", href="/download/coverage.csv"),
+                html.A("Download weights â†“", href="/download/weights.csv"),
+                html.A("Download coverage â†“", href="/download/coverage.csv"),
             ],
             className="download-links",
         ),
@@ -285,61 +273,63 @@ def coverage_view(result, manifest, selected_date):
 def methodology(config):
     return [
         html.H2("How the index works"),
+        html.H3("Seven indicators, one score"),
         html.P(
-            "A Canadian adaptation of the familiar fear-to-greed scale, with transparent inputs and reproducible daily history.",
-            className="lead",
-        ),
-        html.H3("One scale. Equal weights."),
-        html.P(
-            f"Each indicator is ranked against its previous {config['rank_window']} TSX sessions, requiring at least {config['rank_min_history']} finite prior readings. Today's value is excluded from its comparison window. Ties receive the midpoint rank. Scores are inverted for put/call, volatility and credit spreads, so a higher score always means more greed."
+            f"Each indicator is ranked against the previous {config['rank_window']} TSX sessions, with at least {config['rank_min_history']} observations required. Higher scores indicate greater risk appetite. Put/call, volatility and credit scores are reversed so all seven measures use the same direction."
         ),
         table(
-            ["Score", "Reading"],
+            ["Score", "Sentiment"],
             [
-                ["0–<25", "Extreme fear"],
-                ["25–<45", "Fear"],
-                ["45–55", "Neutral"],
-                [">55–75", "Greed"],
-                [">75–100", "Extreme greed"],
+                ["0â€“24", "Extreme fear"],
+                ["25â€“44", "Fear"],
+                ["45â€“55", "Neutral"],
+                ["Above 55â€“75", "Greed"],
+                ["Above 75", "Extreme greed"],
             ],
         ),
+        html.H3("Equal weights"),
         html.P(
-            "The index is the arithmetic mean of available scores. Seven available means 1/7 each; six means 1/6 each; five means 1/5 each. Fewer than five means no published score. No missing values are backfilled or carried forward."
+            "The index averages the available scores. Each receives the same weight, and at least five are required. Missing data are excluded. A delayed indicator may show its last published score on the overview, with the observation date and current weight."
         ),
-        html.H3("Daily history and live quotes are separate"),
+        html.H3("Sources and timing"),
         html.P(
-            "History uses observations dated no later than yesterday in Toronto. Bloomberg quotes are polled every minute and displayed with vendor timestamps. They never overwrite the completed daily index. Cached values remain available if Bloomberg disconnects, and their observation date stays visible."
-        ),
-        html.H3("Source and definition limits"),
-        html.P(
-            "Breadth and new highs/lows use TSX Composite constituents. Credit uses Canadian investment-grade corporate option-adjusted spreads, not US high-yield spreads. The bond comparison uses Canada Aggregate total return, which includes corporate bonds; it is not a pure government safe-haven benchmark."
+            "Daily history ends at yesterday in Toronto. Bloomberg quotes appear under Data & weights. The put/call source can publish later than the other inputs."
         ),
         html.P(
-            "VIXC and VIXI are ranked separately before their scores are selected. US VIX is used during missing Canadian history or Canadian warmup, and is labelled in every exported row. Identical volatility quotes are excluded from the tenth consecutive repeated observation onward; repeated zero breadth counts remain valid."
+            "Breadth and new highs and lows use TSX Composite members. Credit measures Canadian investment-grade corporate option-adjusted spreads. Safe-haven demand compares stock returns with the Canada Aggregate bond index, which includes government and corporate bonds."
         ),
-        html.H3("Research scope"),
+        html.H3("Historical coverage"),
         html.P(
-            "This release reconstructs a historical sentiment timeline. It does not measure strategy P&L or claim predictive performance. The assignment's holdout prediction study, US VIX comparison and trading-rule exercise remain separate future deliverables."
+            "Options history begins in 2011. VIXC and VIXI are scored separately, with US VIX used during gaps or warmup periods. The selected volatility source is recorded in each exported row. Repeated volatility quotes are excluded from the tenth identical observation onward."
         ),
         html.P(
-            "Historical vendor data may be revised and are not a point-in-time vintage archive. The calculation is causal, but cannot establish that all source values were published at the same time. Session dates follow available TSX price observations rather than an independently certified exchange calendar."
-        ),
-        html.Div(
-            [
-                html.A(
-                    "CNN design reference ↗",
-                    href="https://www.cnn.com/markets/fear-and-greed",
-                    target="_blank",
-                ),
-                html.A(
-                    "Project repository ↗",
-                    href="https://github.com/FanDylan1234/Canadian-Fear-and-Greed-Index-RSM434",
-                    target="_blank",
-                ),
-            ],
-            className="download-links",
+            "Historical data can be revised. Scores use earlier observations only, but the source files are not a point-in-time archive. This dashboard shows market sentiment; strategy performance and predictive testing are separate analyses."
         ),
     ]
+
+
+def quote_details(quotes, error):
+    rows = []
+    for quote in (quotes or {}).get("quotes", []):
+        date = str(quote["quote_date"])
+        time = str(quote["quote_time"])
+        timestamp = date if time == date or time == "Unavailable" else f"{date} {time}"
+        rows.append([quote["security"], f"{quote['value']:,.2f}", timestamp])
+    return html.Details(
+        [
+            html.Summary("Bloomberg quotes"),
+            html.P(error, className="muted") if error else None,
+            (
+                table(["Security", "Latest quote", "Source timestamp"], rows)
+                if rows
+                else html.P("Quotes are not available.")
+            ),
+            html.P(
+                "Quotes are shown separately from the daily index.", className="muted"
+            ),
+        ],
+        className="quote-details",
+    )
 
 
 def create_app(offline=False, start_worker=False, service=None):
@@ -364,14 +354,16 @@ def create_app(offline=False, start_worker=False, service=None):
                     [
                         html.A(
                             [
-                                html.Span("C", className="brand-mark"),
-                                html.Strong("MARKET SENTIMENT"),
-                                html.Span("CANADA", className="nav-country"),
+                                html.Img(
+                                    src="/assets/maple-leaf.svg",
+                                    className="brand-mark",
+                                    alt="Canada",
+                                ),
+                                html.Strong("CANADIAN MARKET SENTIMENT"),
                             ],
                             href="/",
                             className="brand",
                         ),
-                        html.Span("RSM434 · ROTMAN COMMERCE", className="nav-project"),
                     ],
                     className="nav-inner",
                 )
@@ -382,16 +374,14 @@ def create_app(offline=False, start_worker=False, service=None):
                         [
                             html.Div(
                                 [
-                                    html.Div("CANADIAN MARKETS", className="eyebrow"),
                                     html.H1("Fear & Greed Index"),
                                     html.P(
-                                        "What emotion is driving the Canadian market?",
-                                        className="lead",
+                                        "Canadian market sentiment", className="lead"
                                     ),
                                 ]
                             ),
                             html.Button(
-                                "↻ Refresh data",
+                                "Refresh data",
                                 id="refresh-button",
                                 n_clicks=0,
                                 className="refresh-button",
@@ -400,7 +390,6 @@ def create_app(offline=False, start_worker=False, service=None):
                         className="hero-heading",
                     ),
                     html.Div(id="status-banner", role="status"),
-                    html.Div(id="quote-strip"),
                     dcc.Tabs(
                         id="view",
                         value="overview",
@@ -422,40 +411,48 @@ def create_app(offline=False, start_worker=False, service=None):
                     ),
                     html.Div(
                         [
-                            html.Label("Timeline range"),
-                            dcc.DatePickerRange(
-                                id="date-range",
-                                start_date="2010-01-01",
-                                end_date=latest,
-                                display_format="MMM D, YYYY",
-                                min_date_allowed="2010-01-01",
+                            html.Div(
+                                [
+                                    html.Label("Date range"),
+                                    dcc.DatePickerRange(
+                                        id="date-range",
+                                        start_date="2010-01-01",
+                                        end_date=latest,
+                                        display_format="MMM D, YYYY",
+                                        min_date_allowed="2010-01-01",
+                                        number_of_months_shown=1,
+                                    ),
+                                ],
+                                className="timeline-controls",
                             ),
-                            html.Label("Inspect weights"),
-                            dcc.DatePickerSingle(
-                                id="weight-date",
-                                date=latest,
-                                display_format="MMM D, YYYY",
-                                min_date_allowed="2010-01-01",
+                            html.Div(
+                                [
+                                    html.Label("Weights as of"),
+                                    dcc.DatePickerSingle(
+                                        id="weight-date",
+                                        date=latest,
+                                        display_format="MMM D, YYYY",
+                                        min_date_allowed="2010-01-01",
+                                    ),
+                                ],
+                                className="weight-controls",
                             ),
                         ],
                         id="date-controls",
                         className="date-controls",
                     ),
                     html.Div(id="page-content"),
+                    html.Div(id="quote-strip"),
                     html.Footer(
                         [
                             html.Strong("Canadian Fear & Greed Index"),
-                            html.Span(
-                                "Independent academic project · Bloomberg / Montréal Exchange / FRED"
-                            ),
-                            html.Small(
-                                "Daily observations. Transparent coverage. No affiliation with CNN."
-                            ),
+                            html.Span("Bloomberg Â· MontrÃ©al Exchange Â· FRED"),
                         ]
                     ),
                 ],
                 className="container",
             ),
+            dcc.Store(id="render-key"),
             dcc.Interval(id="ui-tick", interval=5000, n_intervals=0),
         ]
     )
@@ -466,89 +463,82 @@ def create_app(offline=False, start_worker=False, service=None):
         Output("quote-strip", "children"),
         Output("date-controls", "style"),
         Output("refresh-button", "disabled"),
+        Output("render-key", "data"),
         Input("view", "value"),
         Input("ui-tick", "n_intervals"),
         Input("refresh-button", "n_clicks"),
         Input("date-range", "start_date"),
         Input("date-range", "end_date"),
         Input("weight-date", "date"),
+        State("render-key", "data"),
     )
-    def render(view, tick, clicks, start, end, selected_date):
+    def render(view, tick, clicks, start, end, selected_date, previous_key):
         if ctx.triggered_id == "refresh-button":
             service.request_refresh()
         result, manifest, status, quotes, error, busy = service.snapshot()
-        quote_children = [
-            html.Strong("BLOOMBERG PREVIEW"),
-            html.Span(error or "Latest available quotes · separate from daily index"),
-        ]
-        if quotes:
-            for q in quotes["quotes"]:
-                quote_children.append(
-                    html.Span(
-                        [
-                            html.B(q["security"] + " "),
-                            f"{q['value']:,.2f}",
-                            html.Small(
-                                f"Vendor date/time: {q['quote_date']} {q['quote_time']}"
-                            ),
-                        ],
-                        className="quote-item",
-                    )
-                )
-            quote_children.append(
-                html.Small(
-                    "Retrieved: "
-                    + quotes["fetched_at"]
-                    + (" · cached after connection failure" if error else "")
-                )
-            )
+        controls = {
+            "display": "flex" if view in ("timeline", "data") else "none",
+            "--timeline-display": "flex" if view == "timeline" else "none",
+            "--weights-display": "flex" if view == "data" else "none",
+        }
+        quote_content = quote_details(quotes, error) if view == "data" else []
         if result is None:
             return (
                 html.Div(
                     [
-                        html.H2("Waiting for source history"),
-                        html.P(
-                            "The first download is running. This page updates automatically." if busy else "Source history is unavailable. Check the error below, sign into Bloomberg Terminal, then click Refresh data."
+                        html.H2(
+                            "Loading market history"
+                            if busy
+                            else "Market history unavailable"
                         ),
-                        html.Code(status),
+                        html.P(
+                            "The first download is running. This page updates automatically."
+                            if busy
+                            else "Sign into Bloomberg Terminal and try Refresh data."
+                        ),
+                        html.P(status, className="muted"),
                     ],
                     className="empty-state",
                 ),
-                status,
-                quote_children,
-                {"display": "none"},
+                [],
+                quote_content,
+                controls,
                 busy,
+                None,
             )
-        now = pd.Timestamp.now(tz="America/Toronto").date()
-        age = (now - result.history.index[-1].date()).days
-        banner = [
-            html.Span("DAILY HISTORY", className="status-label"),
-            html.Span(
-                f"Through {manifest['last_date']} · "
-                + ("STALE CACHE · " if age > 4 else "")
-                + status
-            ),
-        ]
-        if any(r["review"] for r in manifest["coverage"]):
-            banner.append(
+        age = (
+            pd.Timestamp.now(tz="America/Toronto").date()
+            - result.history.index[-1].date()
+        ).days
+        banner = []
+        if busy:
+            banner = [html.Span("Updating dataâ€¦")]
+        elif age > 4:
+            banner = [
                 html.Span(
-                    "Research preview · source definitions under review",
-                    className="review-note",
+                    f"History last updated {manifest['last_date']}. Refresh data to check for new readings."
                 )
-            )
-        content = {
-            "overview": lambda: overview(result),
-            "timeline": lambda: timeline(result, start, end),
-            "data": lambda: coverage_view(result, manifest, selected_date),
-            "methodology": lambda: methodology(service.config),
-        }[view]()
-        return (
-            content,
-            banner,
-            quote_children,
-            {"display": "flex" if view in ("timeline", "data") else "none"},
-            busy,
-        )
+            ]
+        elif any(
+            word in status.lower()
+            for word in ("failed", "unavailable", "partial", "error")
+        ):
+            banner = [html.Span(status)]
+        # Keep charts and calendar focus intact when the polling tick has no new data.
+        render_key = json.dumps([id(result), view, start, end, selected_date,
+            (quotes or {}).get("fetched_at") if view == "data" else None,
+            error if view == "data" else None])
+        content = no_update
+        if render_key == previous_key:
+            quote_content = no_update
+        if render_key != previous_key:
+            content = {
+                "overview": lambda: overview(result),
+                "timeline": lambda: timeline(result, start, end),
+                "data": lambda: coverage_view(result, manifest, selected_date),
+                "methodology": lambda: methodology(service.config),
+            }[view]()
+        return content, banner, (no_update if render_key == previous_key else quote_content), controls, busy, render_key
 
     @app.server.get("/download/<name>")
     def download(name):
