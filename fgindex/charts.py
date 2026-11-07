@@ -39,75 +39,95 @@ def style(fig, height=360):
 
 
 def gauge(value):
+    """Draw a true semicircle with proportional bands and a single needle."""
     fig = go.Figure()
     for lo, hi, label, shade in BANDS:
-        angles = np.linspace(np.pi * (1 - lo / 100), np.pi * (1 - hi / 100), 90)
+        angles = np.linspace(np.pi * (1 - lo / 100), np.pi * (1 - hi / 100), 80)
+        x = np.r_[np.cos(angles), 0.79 * np.cos(angles[::-1])]
+        y = np.r_[np.sin(angles), 0.79 * np.sin(angles[::-1])]
         fig.add_trace(
             go.Scatter(
-                x=np.cos(angles),
-                y=np.sin(angles),
+                x=x,
+                y=y,
                 mode="lines",
-                line=dict(color=shade, width=40),
+                fill="toself",
+                fillcolor=shade,
+                line=dict(color="white", width=2),
                 hoverinfo="skip",
                 showlegend=False,
             )
         )
         mid = np.pi * (1 - (lo + hi) / 200)
         fig.add_annotation(
-            x=1.27 * np.cos(mid),
-            y=1.27 * np.sin(mid),
-            text=label.replace(" ", "<br>"),
+            x=1.19 * np.cos(mid),
+            y=1.19 * np.sin(mid),
+            text=label.replace("Extreme ", "Extreme<br>"),
             showarrow=False,
-            font=dict(size=11, color="#555"),
+            font=dict(size=12, color="#3b4147"),
         )
-    for v in (0, 25, 50, 75, 100):
-        angle = np.pi * (1 - v / 100)
+    for tick in (0, 25, 50, 75, 100):
+        angle = np.pi * (1 - tick / 100)
         fig.add_annotation(
-            x=0.78 * np.cos(angle),
-            y=0.78 * np.sin(angle),
-            text=str(v),
+            x=0.68 * np.cos(angle),
+            y=0.68 * np.sin(angle),
+            text=str(tick),
             showarrow=False,
-            font=dict(size=12, color="#666"),
+            font=dict(size=11, color="#626a73"),
         )
     if pd.notna(value):
-        angle = np.pi * (1 - value / 100)
+        angle = np.pi * (1 - np.clip(value, 0, 100) / 100)
+        tip = np.array([0.73 * np.cos(angle), 0.73 * np.sin(angle)])
+        side = np.array([-0.024 * np.sin(angle), 0.024 * np.cos(angle)])
         fig.add_trace(
             go.Scatter(
-                x=[0, 0.69 * np.cos(angle)],
-                y=[0, 0.69 * np.sin(angle)],
+                x=[side[0], tip[0], -side[0]],
+                y=[side[1], tip[1], -side[1]],
                 mode="lines",
-                line=dict(color="#202124", width=5),
+                fill="toself",
+                fillcolor="#16191d",
+                line=dict(width=0),
                 hoverinfo="skip",
                 showlegend=False,
             )
         )
-    fig.add_trace(
-        go.Scatter(
-            x=[0],
-            y=[0],
-            mode="markers",
-            marker=dict(size=15, color="#202124"),
-            hoverinfo="skip",
-            showlegend=False,
+        fig.add_trace(
+            go.Scatter(
+                x=[0],
+                y=[0],
+                mode="markers",
+                marker=dict(size=11, color="#16191d"),
+                hoverinfo="skip",
+                showlegend=False,
+            )
         )
+    fig.add_annotation(
+        x=0,
+        y=-0.21,
+        text=f"<b>{value:.0f}</b>" if pd.notna(value) else "â€”",
+        showarrow=False,
+        font=dict(size=50, color="#16191d"),
     )
     fig.add_annotation(
         x=0,
-        y=-0.27,
-        text=f"<b>{value:.0f}</b>" if pd.notna(value) else "—",
+        y=-0.46,
+        text=regime(value),
         showarrow=False,
-        font=dict(size=54),
-    )
-    fig.add_annotation(
-        x=0, y=-0.55, text=regime(value).upper(), showarrow=False, font=dict(size=14)
+        font=dict(size=15, color="#4b535b"),
     )
     fig.update_layout(
-        height=355,
-        margin=dict(l=12, r=12, t=25, b=5),
+        height=340,
+        margin=dict(l=12, r=12, t=15, b=0),
         paper_bgcolor="white",
         plot_bgcolor="white",
-        xaxis=dict(range=[-1.5, 1.5], visible=False, fixedrange=True),
-        yaxis=dict(range=[-0.68, 1.5], visible=False, scaleanchor="x", fixedrange=True),
+        font=dict(family="Arial, sans-serif"),
+        xaxis=dict(range=[-1.4, 1.4], visible=False, fixedrange=True),
+        yaxis=dict(
+            range=[-0.57, 1.4],
+            visible=False,
+            scaleanchor="x",
+            scaleratio=1,
+            fixedrange=True,
+        ),
         hovermode=False,
     )
     return fig
