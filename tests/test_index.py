@@ -137,6 +137,21 @@ class DashboardTests(unittest.TestCase):
         cls.app = create_app(service=cls.service)
         cls.client = cls.app.server.test_client()
 
+    def assert_clean_text(self, payload):
+        # Inspect decoded HTTP data: JSON escaping must not hide broken text.
+        text = str(payload)
+        for broken in ("\u00c2", "\u00c3", "\u00e2\u20ac", "\u00e2\u2020", "\ufffd"):
+            self.assertNotIn(broken, text)
+
+    def test_dashboard_text_encoding(self):
+        response = self.client.get("/")
+        self.assertIn("charset=utf-8", response.content_type.lower())
+        layout = self.client.get("/_dash-layout").get_json()
+        self.assert_clean_text(layout)
+        self.assertIn("Bloomberg \u00b7 Montr\u00e9al Exchange \u00b7 FRED", str(layout))
+        from fgindex.charts import gauge
+        self.assertIn("\u2014", str(gauge(float("nan")).to_plotly_json()))
+
     def test_dash_routes(self):
         for route in ("/", "/_dash-layout", "/_dash-dependencies", "/assets/style.css"):
             with self.client.get(route) as response:
@@ -152,6 +167,9 @@ class DashboardTests(unittest.TestCase):
             self.assertEqual(response.status_code, 200, response.data[:300])
             self.assertIn("page-content", response.json["response"])
             rendered = response.json["response"]
+            self.assert_clean_text(rendered)
+            if view == "timeline":
+                self.assertIn("Download history \u2193", str(rendered))
             if view in ("timeline", "data"):
                 control_style = rendered["date-controls"]["style"]
                 self.assertEqual(control_style["--timeline-display"], "flex" if view == "timeline" else "none")
