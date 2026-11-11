@@ -168,6 +168,10 @@ class DashboardTests(unittest.TestCase):
             self.assertIn("page-content", response.json["response"])
             rendered = response.json["response"]
             self.assert_clean_text(rendered)
+            page = rendered["page-content"]["children"]["props"]
+            self.assertEqual(page["key"], view)
+            self.assertEqual(page["data-view"], view)
+            self.assertEqual("timeline-history" in str(page), view == "timeline")
             if view == "timeline":
                 self.assertIn("Download history \u2193", str(rendered))
             if view in ("timeline", "data"):

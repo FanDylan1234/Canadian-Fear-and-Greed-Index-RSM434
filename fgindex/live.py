@@ -129,18 +129,17 @@ def refresh_daily(raw_dir=None, client_factory=BloombergClient):
     atomic_text(
         report_path, json.dumps(dict(old, results=results), indent=2, default=str)
     )
-    # Public options and US fallback remain their original authoritative sources.
+    vix_note = ""
+    # US VIX can use the official Cboe distributor when FRED is unreachable.
     for source, url, _, _ in SOURCES:
         if source not in ("fred_vix", "mx_equity_put_call"):
             continue
         try:
             if source == "fred_vix":
-                url = (
-                    "https://fred.stlouisfed.org/graph/fredgraph.csv?id=VIXCLS&cosd="
-                    + load_config()["history_start"]
-                    + "&coed="
-                    + yesterday()
-                )
+                from .us_vix import refresh_vix
+                provenance = refresh_vix(raw_dir, load_config()["history_start"], yesterday())
+                vix_note = "US VIX: " + provenance["provider"] + " through " + provenance["last"]
+                continue
             request = urllib.request.Request(
                 url, headers={"User-Agent": "CanadianFG-research/1.0"}
             )
@@ -155,7 +154,7 @@ def refresh_daily(raw_dir=None, client_factory=BloombergClient):
     status = dict(
         at=dt.datetime.now(dt.timezone.utc).isoformat(),
         errors=errors,
-        status="Updated" if not errors else "Partial refresh / cached inputs retained",
+        status=("Updated" if not errors else "Partial refresh / cached inputs retained") + ("; " + vix_note if vix_note else ""),
     )
     atomic_text(raw_dir.parent / "refresh-status.json", json.dumps(status, indent=2))
     return status

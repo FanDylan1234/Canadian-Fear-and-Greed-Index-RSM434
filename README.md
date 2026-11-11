@@ -66,3 +66,8 @@ History begins in 2010 where sufficient warmup exists. The timeline is a researc
 
 See [source requirements](docs/data-requirements.md) and [earlier development notes](docs/development-history.md) for detailed evidence, milestones, and AI-use disclosure.
 
+
+## US VIX refresh and tab rendering
+FRED is attempted with a 10-second timeout. If it fails or returns invalid history, the dashboard downloads official [Cboe daily VIX closes](https://cdn.cboe.com/api/global/us_indices/daily_prices/VIX_History.csv). This is US VIX, not a replacement Canadian volatility index. The legacy `fred_vix.csv` filename is retained for compatibility; `us-vix-source.json` records the actual distributor, URL, dates and checksum, and Data & weights shows the matching source. A download that loses cached observations, contains invalid values, or is over seven calendar days behind the requested end is rejected. If both providers fail, the cache is unchanged and the warning includes its last date.
+
+Each tab now mounts a keyed page with distinct graph IDs. A browser-side visibility guard hides the previous page immediately on navigation while the server prepares the next page.

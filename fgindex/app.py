@@ -99,7 +99,7 @@ def overview(result):
                     html.Div(
                         [
                             dcc.Graph(
-                                figure=signal_chart(result, key), config=GRAPH_CONFIG
+                                id=f"indicator-{key}", figure=signal_chart(result, key), config=GRAPH_CONFIG
                             ),
                             html.Div(
                                 [
@@ -115,7 +115,7 @@ def overview(result):
                                         ],
                                         className="component-score",
                                     ),
-                                    html.P(rationale),
+                                    *[html.P(paragraph) for paragraph in rationale.split("\n\n")],
                                     html.P(
                                         f"Current index weight: {weight:.2%}",
                                         className="weight-label",
@@ -136,7 +136,7 @@ def overview(result):
             [
                 html.Div(
                     [
-                        dcc.Graph(figure=gauge(latest["index"]), config=GRAPH_CONFIG),
+                        dcc.Graph(id="overview-gauge", figure=gauge(latest["index"]), config=GRAPH_CONFIG),
                         html.P(
                             f"Daily observation \xb7 {history.index[-1]:%b %d, %Y}",
                             className="chart-caption",
@@ -190,7 +190,7 @@ def timeline(result, start, end):
             className="muted",
         ),
         dcc.Graph(
-            figure=history_chart(result.history, start, end),
+            id="timeline-history", figure=history_chart(result.history, start, end),
             config={"displaylogo": False, "scrollZoom": False},
         ),
         html.Div(
@@ -206,7 +206,7 @@ def timeline(result, start, end):
             className="muted",
         ),
         dcc.Graph(
-            figure=weights_chart(result.weights.loc[start:end]), config=GRAPH_CONFIG
+            id="timeline-weights", figure=weights_chart(result.weights.loc[start:end]), config=GRAPH_CONFIG
         ),
         html.P(
             "See Methodology for coverage gaps and source definitions.",
@@ -233,7 +233,7 @@ def coverage_view(result, manifest, selected_date):
     return [
         html.H2("Source coverage"),
         html.P(
-            "History available for each source. Definitions awaiting review are marked below.",
+            "History available for each source. Definitions awaiting review are marked below. Available means data exist; definition review means the benchmark or field still needs confirmation. Usable flagged series currently contribute to the index.",
             className="muted",
         ),
         table(
@@ -300,7 +300,7 @@ def methodology(config):
         ),
         html.H3("Historical coverage"),
         html.P(
-            "Options history begins in 2011. VIXC and VIXI are scored separately, with US VIX used during gaps or warmup periods. The selected volatility source is recorded in each exported row. Repeated volatility quotes are excluded from the tenth identical observation onward."
+            "Options history begins in 2011. VIXC and VIXI are scored separately, with US VIX used during gaps or warmup periods. US VIX downloads try FRED first, then Cboe daily closes if FRED fails; Data & weights identifies the distributor. The selected volatility source is recorded in each exported row. Repeated volatility quotes are excluded from the tenth identical observation onward."
         ),
         html.P(
             "Historical data can be revised. Scores use earlier observations only, but the source files are not a point-in-time archive. This dashboard shows market sentiment; strategy performance and predictive testing are separate analyses."
@@ -441,7 +441,7 @@ def create_app(offline=False, start_worker=False, service=None):
                         id="date-controls",
                         className="date-controls",
                     ),
-                    html.Div(id="page-content"),
+                    html.Div(id="page-content", className="overview"),
                     html.Div(id="quote-strip"),
                     html.Footer(
                         [
@@ -538,7 +538,15 @@ def create_app(offline=False, start_worker=False, service=None):
                 "data": lambda: coverage_view(result, manifest, selected_date),
                 "methodology": lambda: methodology(service.config),
             }[view]()
+            content = html.Div(content, key=view, **{"data-view": view})
         return content, banner, (no_update if render_key == previous_key else quote_content), controls, busy, render_key
+
+    # Hide the old tab immediately while its replacement is being calculated.
+    # A keyed page remount also prevents Plotly state being reused across tabs.
+    app.clientside_callback(
+        "function(view) { return view; }",
+        Output("page-content", "className"), Input("view", "value"),
+    )
 
     @app.server.get("/download/<name>")
     def download(name):

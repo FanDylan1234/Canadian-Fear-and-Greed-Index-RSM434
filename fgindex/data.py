@@ -1,6 +1,7 @@
 """Load source CSV files, check dates and values, and describe coverage."""
 
 import io
+import hashlib
 import json
 from pathlib import Path
 import numpy as np
@@ -109,6 +110,14 @@ def read_inputs(raw_dir, config):
                 ),
             )
         )
+        if name == "fred_vix" and path.exists():
+            provenance_path = raw_dir / "us-vix-source.json"
+            if provenance_path.exists():
+                provenance = json.loads(provenance_path.read_text(encoding="utf-8"))
+                normalized = path.read_text(encoding="utf-8-sig")
+                if hashlib.sha256(normalized.encode()).hexdigest() == provenance.get("sha256"):
+                    coverage[-1].update(security=provenance["provider"] + " US VIX",
+                                        field=provenance["field"])
         series[name] = s
     frame = pd.DataFrame(series)
     frame.index = pd.DatetimeIndex(

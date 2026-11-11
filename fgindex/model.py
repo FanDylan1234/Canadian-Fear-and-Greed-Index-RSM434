@@ -8,37 +8,37 @@ COMPONENTS = {
     "momentum": (
         "Market momentum",
         "TSX versus its prior 125-session average",
-        "A market above its recent trend indicates greater risk appetite.",
+        "We compare the TSX Composite with its average over the previous 125 trading sessions, roughly six months. A larger premium to that trend suggests investors are willing to pay more for equities; weakness below trend suggests less confidence. The distance from the average is ranked against its own recent history, so unusually strong momentum raises the greed score.\n\nMomentum describes the prevailing trend, not whether stocks are cheap or expensive. Earnings, interest rates and the TSX's sector mix can also drive prices, and strong trends can reverse.",
     ),
     "strength": (
         "Stock price strength",
         "20-session mean of new 52-week highs minus lows",
-        "More stocks making new highs suggests broader confidence.",
+        "We subtract the number of Composite members making new 52-week lows from those making new 52-week highs, then average the difference over 20 sessions. A broad set of stocks breaking higher suggests confidence extends beyond a few large companies. More new lows suggests weakness is spreading. A higher net count relative to its recent history raises the greed score.\n\nThis measures participation at longer-term price extremes. It differs from daily breadth: a stock can rise today while remaining far below its yearly high. The count can also change as index membership and sector conditions change.",
     ),
     "breadth": (
         "Market breadth",
         "20-session mean of (advancers − decliners) / total",
-        "Participation across the same stock universe confirms market direction.",
+        "We count advancing and declining TSX Composite members, divide their difference by their combined count, and average that ratio over 20 sessions. When many stocks rise together, buying is more widespread than when a few heavily weighted names lift the index. Stronger participation raises the greed score; widespread declines lower it.\n\nThe ratio normalizes for the number of stocks moving that day and excludes unchanged stocks. It gives each advancing or declining stock the same count, so it complements the capitalization-weighted index. It measures direction, not trading volume or the size of price moves.",
     ),
     "options": (
         "Put / call options",
         "5-session mean of Montréal equity put/call ratio",
-        "Higher demand for puts signals greater demand for protection.",
+        "We use the five-session average of the Montreal Exchange equity put/call ratio. Puts can protect against falling prices, while calls can provide upside exposure. More put activity relative to calls is therefore interpreted as greater demand for protection. The percentile score is inverted: an unusually high ratio lowers the greed score.\n\nOptions activity is not a direct vote on market direction: each trade has a buyer and seller, and hedging, covered calls and multi-leg strategies also affect the ratio. Smoothing reduces daily noise. Delayed observations receive zero current weight until usable new data arrives.",
     ),
     "volatility": (
         "Market volatility",
         "Canadian implied volatility; disclosed US VIX fallback",
-        "Higher expected volatility signals fear. Each source is ranked separately.",
+        "Implied volatility reflects the size of future moves priced into options, not a forecast that prices must fall. Elevated readings often accompany uncertainty and expensive downside protection, so unusually high volatility lowers the greed score. Low readings indicate calmer pricing, although they can also reflect complacency.\n\nWe rank VIXC and VIXI separately because their definitions differ. US VIX is used only when Canadian scores are unavailable or warming up, and is identified in the history. It reflects US equity risk rather than a direct measure of Canadian sentiment.",
     ),
     "credit": (
         "Credit demand",
         "Canadian investment-grade corporate OAS",
-        "Wider credit spreads indicate lower willingness to take credit risk.",
+        "Canadian investment-grade corporate option-adjusted spreads measure the extra yield over the reference government curve after adjusting for embedded options. Investors generally demand a larger premium when they are less comfortable bearing credit and liquidity risk. Wider spreads therefore lower the greed score; narrower spreads raise it.\n\nSpreads also respond to issuer fundamentals, bond supply and liquidity. This is an investment-grade Canadian measure, not CNN's US high-yield indicator. It adds a bond-market perspective, but should not be interpreted as a pure measure of emotion.",
     ),
     "safe_haven": (
         "Safe-haven demand",
         "20-session stock minus aggregate-bond total return",
-        "Equity outperformance of bonds indicates greater risk appetite.",
+        "We subtract the Canada Aggregate bond index's 20-session total return from the TSX Composite's 20-session total return. Equity outperformance is consistent with investors favoring growth and risk; bond outperformance is consistent with a more defensive environment. A larger stock-minus-bond return relative to recent history raises the greed score.\n\nTotal returns include distributions, making the comparison more meaningful than price changes alone. The bond benchmark includes corporate as well as government debt, and interest-rate changes can move bonds independently of sentiment. This is a relative-performance proxy, not a direct measurement of money flows.",
     ),
 }
 
