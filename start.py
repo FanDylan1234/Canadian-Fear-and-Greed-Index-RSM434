@@ -136,8 +136,20 @@ def prepare_bloomberg():
 def run(module="app", arguments=None):
     """Launch a project entry point with packages installed in the same Python."""
     try:
-        prepare_environment()
         arguments = arguments or []
+        if module == "app":
+            options = argparse.ArgumentParser(add_help=False)
+            options.add_argument("--port", type=int, default=8050)
+            selected, _ = options.parse_known_args(arguments)
+            if not 1 <= selected.port <= 65535:
+                raise RuntimeError("Port must be between 1 and 65535.")
+            print(
+                f"\nDASHBOARD LINK: http://127.0.0.1:{selected.port}\n"
+                "Setup is starting. Open this link once the terminal says Running on.\n"
+                "Keep this terminal open while using the dashboard.\n",
+                flush=True,
+            )
+        prepare_environment()
         needs_bloomberg = (
             (module == "app" and "--offline" not in arguments)
             or (module == "update_index" and "--refresh" in arguments)
