@@ -1,5 +1,5 @@
 # Canadian Fear and Greed Index
-RSM434 Financial Trading Strategies Â· University of Toronto Â· Scotiabank industry project
+RSM434 Financial Trading Strategies University of Toronto & Scotiabank industry project
 
 ## Start here
 Keep the extracted project folder together. Open it in VS Code and run this command in a PowerShell terminal:
@@ -8,7 +8,7 @@ Keep the extracted project folder together. Open it in VS Code and run this comm
 python start.py
 ```
 
-Open http://127.0.0.1:8050 and keep the terminal open. Python 3.10â€“3.13 is supported. Python 3.12 is recommended.
+Open http://127.0.0.1:8050 and keep the terminal open. Python 3.10-3.13 is supported. Python 3.12 is recommended.
 The launcher finds a supported interpreter, creates a local .venv, and installs the required package versions there.
 This is the only script you need to run. The dashboard refreshes sources and builds the index when it starts. Use **Refresh data** to request another refresh.
 
