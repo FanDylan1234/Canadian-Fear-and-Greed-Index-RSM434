@@ -23,7 +23,7 @@ COMPONENTS = {
     "options": (
         "Put / call options",
         "5-session mean of Montréal equity put/call ratio",
-        "We use the five-session average of the Montreal Exchange equity put/call ratio. Puts can protect against falling prices, while calls can provide upside exposure. More put activity relative to calls is therefore interpreted as greater demand for protection. The percentile score is inverted: an unusually high ratio lowers the greed score.\n\nOptions activity is not a direct vote on market direction: each trade has a buyer and seller, and hedging, covered calls and multi-leg strategies also affect the ratio. Smoothing reduces daily noise. Delayed observations receive zero current weight until usable new data arrives.",
+        "We use the five-session average of the Montreal Exchange equity put/call ratio. Puts can protect against falling prices, while calls can provide upside exposure. More put activity relative to calls is therefore interpreted as greater demand for protection. The percentile score is inverted: an unusually high ratio lowers the greed score.\n\nOptions activity is not a direct vote on market direction: each trade has a buyer and seller, and hedging, covered calls and multi-leg strategies also affect the ratio. Smoothing reduces daily noise. When publication is delayed, the latest available calculated score remains included at equal weight, with its original date shown.",
     ),
     "volatility": (
         "Market volatility",
@@ -138,6 +138,9 @@ def build_index(inputs, config):
     scores = pd.DataFrame({c: rank(signals[c]) for c in signals}, index=data.index)
     for c in ("options", "credit"):
         scores[c] = 100 - scores[c]
+    # Carry the last calculated score, not fabricated raw observations.
+    options_date = pd.Series(data.index, index=data.index).where(scores["options"].notna()).ffill()
+    scores["options"] = scores["options"].ffill()
     # Never percentile-rank a splice of differently defined volatility levels.
     source = pd.Series("Unavailable", index=data.index)
     vol_score = pd.Series(np.nan, index=data.index)
@@ -169,6 +172,8 @@ def build_index(inputs, config):
             "index": index,
             "regime": index.map(regime),
             "active_components": count,
+            "options_score_date": options_date,
+            "options_carried_forward": options_date.notna() & options_date.ne(pd.Series(data.index, index=data.index)),
             "volatility_source": source,
             "tsx_price": price,
             "tsx_total_return": get("tsx_total_return"),

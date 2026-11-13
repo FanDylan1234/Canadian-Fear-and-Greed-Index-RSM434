@@ -110,6 +110,19 @@ class IndexTests(unittest.TestCase):
         self.assertEqual(result["quotes"][0]["quote_date"], "2026-11-06")
         self.assertTrue(client.closed)
 
+    def test_options_delay_carries_score_with_original_date(self):
+        source = fixture()
+        source.loc[source.index[-2:], "mx_equity_put_call"] = np.nan
+        result = build_index(source, load_config())
+        self.assertEqual(result.scores.options.iloc[-1], result.scores.options.iloc[-3])
+        self.assertAlmostEqual(result.weights.options.iloc[-1], 1/7)
+        self.assertEqual(result.history.options_score_date.iloc[-1], source.index[-3])
+        self.assertTrue(result.history.options_carried_forward.iloc[-1])
+        source["mx_equity_put_call"] = np.nan
+        missing = build_index(source, load_config())
+        self.assertTrue(missing.scores.options.isna().all())
+        self.assertTrue((missing.weights.options == 0).all())
+
     def test_regime_boundaries(self):
         self.assertEqual([regime(x) for x in [0, 25, 45, 55, 75, 100]],
                          ["Extreme fear", "Fear", "Neutral", "Neutral", "Greed", "Extreme greed"])

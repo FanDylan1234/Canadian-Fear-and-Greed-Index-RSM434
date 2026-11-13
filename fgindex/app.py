@@ -76,14 +76,10 @@ def overview(result):
         note = ""
         if pd.isna(value):
             note = "Waiting for enough source history."
-            available = result.scores[key].dropna()
-            if key == "options" and not available.empty:
-                value = available.iloc[-1]
-                score_date = available.index[-1]
-                note = (
-                    f"Publication delay. Latest score from {score_date:%b %d}. "
-                    "Excluded from the current index until new data arrives."
-                )
+        if key == "options" and pd.notna(latest.get("options_score_date")):
+            score_date = pd.Timestamp(latest["options_score_date"])
+            if latest.get("options_carried_forward", False):
+                note = f"Publication delayed: using {score_date:%B %d, %Y} data in the index at {weight:.2%} weight."
 
         cards.append(
             html.Article(
@@ -120,7 +116,7 @@ def overview(result):
                                         f"Current index weight: {weight:.2%}",
                                         className="weight-label",
                                     ),
-                                    html.Small(note),
+                                    html.P(note, className="weight-label", role="status"),
                                 ],
                                 className="indicator-explanation",
                             ),
@@ -225,7 +221,8 @@ def coverage_view(result, manifest, selected_date):
             value = result.scores.loc[selected, key]
             rows.append(
                 [
-                    label,
+                    (label + " (using " + pd.Timestamp(result.history.loc[selected, "options_score_date"]).strftime("%b %d, %Y") + " data)"
+                     if key == "options" and result.history.loc[selected, "options_carried_forward"] else label),
                     f"{value:.2f}" if pd.notna(value) else "Unavailable",
                     f"{result.weights.loc[selected, key]:.2%}",
                 ]
@@ -289,7 +286,7 @@ def methodology(config):
         ),
         html.H3("Equal weights"),
         html.P(
-            "The index averages the available scores. Each receives the same weight, and at least five are required. Missing data are excluded. A delayed indicator may show its last published score on the overview, with the observation date and current weight."
+            "The index averages the available scores. Each receives the same weight, and at least five are required. Missing data are excluded, except put/call: its latest available calculated score is carried forward and equally weighted until a new score is available. Its original date is displayed. No score is filled backward before options history or scoring warmup."
         ),
         html.H3("Sources and timing"),
         html.P(
@@ -524,6 +521,9 @@ def create_app(offline=False, start_worker=False, service=None):
             for word in ("failed", "unavailable", "partial", "error")
         ):
             banner = [html.Span(status)]
+        if result.history.iloc[-1].get("options_carried_forward", False):
+            used = pd.Timestamp(result.history.iloc[-1]["options_score_date"])
+            banner.append(html.Span(f"Put/call: using {used:%B %d, %Y} data in the index (publication delayed)."))
         # Keep charts and calendar focus intact when the polling tick has no new data.
         render_key = json.dumps([id(result), view, start, end, selected_date,
             (quotes or {}).get("fetched_at") if view == "data" else None,
