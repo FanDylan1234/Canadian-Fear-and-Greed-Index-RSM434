@@ -6,7 +6,7 @@ import pandas as pd
 from test_index import fixture
 from fgindex.data import load_config, read_inputs
 from fgindex.pipeline import build
-import start
+import runtostartindex as start
 
 class StartupAndDateTests(unittest.TestCase):
     def test_missing_optional_files_keep_dates_and_pipeline_builds(self):
@@ -32,12 +32,12 @@ class StartupAndDateTests(unittest.TestCase):
             (["--check-data"], "run_all_checks", []),
         ]:
             with self.subTest(arguments=arguments), patch(
-                "sys.argv", ["start.py", *arguments]
-            ), patch("start.run", return_value=0) as launch:
+                "sys.argv", ["runtostartindex.py", *arguments]
+            ), patch("runtostartindex.run", return_value=0) as launch:
                 self.assertEqual(start.main(), 0)
                 launch.assert_called_once_with(module, remaining)
 
     def test_launcher_rejects_unsupported_existing_environment(self):
-        with patch('pathlib.Path.exists', return_value=True), patch('start.supported', return_value=False):
+        with patch('pathlib.Path.exists', return_value=True), patch('runtostartindex.supported', return_value=False):
             with self.assertRaisesRegex(RuntimeError, 'existing .venv'):
                 start.prepare_environment()

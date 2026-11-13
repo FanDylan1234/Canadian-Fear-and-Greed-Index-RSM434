@@ -12,9 +12,9 @@ This repository includes a local Dash dashboard and a daily Canadian sentiment i
 
 ### VS Code / Windows quick start
 
-Open the folder containing `app.py` in VS Code. In a **PowerShell terminal** (not the Python `>>>` prompt), run `python start.py`. If you see `>>>`, enter `exit()` first. The launcher creates `.venv` if needed, installs missing dashboard dependencies, starts the app, and prints the local browser URL. Python 3.12 is recommended; if Python 3.14 is selected, the launcher looks for an installed supported version using `py`.
+Open the folder containing `app.py` in VS Code. In a **PowerShell terminal** (not the Python `>>>` prompt), run `python runtostartindex.py`. If you see `>>>`, enter `exit()` first. The launcher creates `.venv` if needed, installs missing dashboard dependencies, starts the app, and prints the local browser URL. Python 3.12 is recommended; if Python 3.14 is selected, the launcher looks for an installed supported version using `py`.
 
-Select **Python: Select Interpreter** from the command palette and choose `.venv/Scripts/python.exe` to clear missing-import warnings. VS Code may retain an older interpreter selection even after pulling the new settings. Use **Run and Debug > Canadian Fear & Greed: setup and run** for F5. Bloomberg's official `blpapi` must be installed separately into this same environment for live data. `python start.py --offline` uses existing cached data.
+Select **Python: Select Interpreter** from the command palette and choose `.venv/Scripts/python.exe` to clear missing-import warnings. VS Code may retain an older interpreter selection even after pulling the new settings. Use **Run and Debug > Canadian Fear & Greed: setup and run** for F5. Bloomberg's official `blpapi` must be installed separately into this same environment for live data. `python runtostartindex.py --offline` uses existing cached data.
 
 From the extracted project folder, using Python 3.10+:
 
@@ -122,7 +122,7 @@ The Bloomberg script returns nonzero in a shell if any dataset still needs revie
 - Initial seven offline tests passed: historical range/gaps, VIXC cessation, count validity, candidate review status, failure isolation/session cleanup, and Bloomberg response date/null/error parsing. These tests do not confirm live Bloomberg search schemas, entitlements or candidate mappings.
 
 ```sh
-python -m unittest discover -s tests -v
+python -m unittest discover -s support/tests -v
 ```
 
 Earlier access snapshots remain under `docs/archive/initial-access-report.*`; consult run timestamps.

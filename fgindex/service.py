@@ -15,7 +15,7 @@ class DashboardService:
         self.stop = threading.Event()
         self.result, self.manifest = None, None
         self.status = (
-            "Cached daily observations" if offline else "Connecting to Bloomberg…"
+            "Cached daily observations" if offline else "Connecting to Bloomberg."
         )
         self.quote = None
         self.quote_error = "Offline mode" if offline else "Awaiting first quote"
@@ -72,14 +72,14 @@ class DashboardService:
                 with self.lock:
                     self.refreshing = True
                     self.status = (
-                        "Refreshing daily sources; cached readings remain visible…"
+                        "Refreshing daily sources; cached readings remain visible."
                     )
                 try:
                     report = refresh_daily(self.raw_dir)
                     with self.lock:
                         self.refresh_error = " | ".join(report["errors"]) or None
                         self.status = report["status"] + (
-                            " · " + " | ".join(report["errors"][:3])
+                            " ï¿½ " + " | ".join(report["errors"][:3])
                             if report["errors"]
                             else ""
                         )

@@ -333,7 +333,7 @@ def create_app(offline=False, start_worker=False, service=None):
     service = service or DashboardService(offline=offline)
     app = Dash(
         __name__,
-        assets_folder=str(ROOT / "assets"),
+        assets_folder=str(ROOT / "support" / "assets"),
         title="Canadian Fear & Greed Index",
         update_title=None,
     )

@@ -17,12 +17,12 @@ COMPONENTS = {
     ),
     "breadth": (
         "Market breadth",
-        "20-session mean of (advancers − decliners) / total",
+        "20-session mean of (advancers - decliners) / total",
         "We count advancing and declining TSX Composite members, divide their difference by their combined count, and average that ratio over 20 sessions. When many stocks rise together, buying is more widespread than when a few heavily weighted names lift the index. Stronger participation raises the greed score; widespread declines lower it.\n\nThe ratio normalizes for the number of stocks moving that day and excludes unchanged stocks. It gives each advancing or declining stock the same count, so it complements the capitalization-weighted index. It measures direction, not trading volume or the size of price moves.",
     ),
     "options": (
         "Put / call options",
-        "5-session mean of Montréal equity put/call ratio",
+        "5-session mean of Montrï¿½al equity put/call ratio",
         "We use the five-session average of the Montreal Exchange equity put/call ratio. Puts can protect against falling prices, while calls can provide upside exposure. More put activity relative to calls is therefore interpreted as greater demand for protection. The percentile score is inverted: an unusually high ratio lowers the greed score.\n\nOptions activity is not a direct vote on market direction: each trade has a buyer and seller, and hedging, covered calls and multi-leg strategies also affect the ratio. Smoothing reduces daily noise. When publication is delayed, the latest available calculated score remains included at equal weight, with its original date shown.",
     ),
     "volatility": (

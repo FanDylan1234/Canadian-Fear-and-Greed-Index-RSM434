@@ -5,26 +5,28 @@ RSM434 Financial Trading Strategies University of Toronto & Scotiabank industry 
 Keep the extracted project folder together. Open it in VS Code and run this command in a PowerShell terminal:
 
 ```powershell
-python start.py
+python runtostartindex.py
 ```
 
 Open http://127.0.0.1:8050 and keep the terminal open. Python 3.10-3.13 is supported. Python 3.12 is recommended.
 The launcher finds a supported interpreter, creates a local .venv, and installs the required package versions there.
 This is the only script you need to run. The dashboard refreshes sources and builds the index when it starts. Use **Refresh data** to request another refresh.
 
+For the configured F5 shortcut, open **support/Canadian-Fear-and-Greed.code-workspace** in VS Code. It opens the repository root and loads the launch settings. The relocated support/.vscode files are reference templates; VS Code does not discover them automatically.
+
 In VS Code, select **Python: Select Interpreter**, then choose **.venv/Scripts/python.exe**.
 Package installation and execution must use the same interpreter. Packages installed in Anaconda are separate from Python 3.14.
-The **fgindex** folder contains the project code. Keep it beside **start.py**.
+The **fgindex** folder contains the project code. Keep it beside **runtostartindex.py**.
 
 ## Optional commands
 | Task | PowerShell command |
 |---|---|
-| Use cached data | `python start.py --offline` |
-| Refresh data and build outputs | `python start.py --update --refresh` |
-| Rebuild from cached data | `python start.py --update` |
-| Diagnose data access | `python start.py --check-data` |
-| Replace older breadth exports | `python start.py --repair-breadth` |
-| Run validation tests after setup | `.\.venv\Scripts\python.exe -m unittest discover -s tests -v` |
+| Use cached data | `python runtostartindex.py --offline` |
+| Refresh data and build outputs | `python runtostartindex.py --update --refresh` |
+| Rebuild from cached data | `python runtostartindex.py --update` |
+| Diagnose data access | `python runtostartindex.py --check-data` |
+| Replace older breadth exports | `python runtostartindex.py --repair-breadth` |
+| Run validation tests after setup | `.\.venv\Scripts\python.exe -m unittest discover -s support/tests -v` |
 
 The first setup needs internet access to install packages, including when --offline is selected.
 If setup fails, the terminal shows the installation error. Rerun after resolving it.
@@ -41,15 +43,16 @@ Some source definitions still need review. Consult the Data & weights page befor
 ## What each part does
 | File or folder | Purpose |
 |---|---|
-| start.py | Finds Python, installs packages, and launches the chosen task |
+| runtostartindex.py | Finds Python, installs packages, and launches the chosen task |
 | fgindex/ | Dashboard, index calculations, data downloads, and diagnostics |
 | index-config.json | Scoring windows and publication rules |
 | bloomberg-series.json | Bloomberg securities, fields, and verification flags |
 | requirements.txt | Required Python packages and allowed versions |
-| assets/ | Dashboard appearance |
-| tests/ | Automated checks for calculation and data-access behavior |
-| docs/ | Source requirements and earlier research checkpoints |
-| .vscode/ | Editor settings and the F5 launch shortcut |
+| support/assets/ | Dashboard appearance |
+| support/tests/ | Automated checks for calculation and data-access behavior |
+| support/docs/ | Source requirements and earlier research checkpoints |
+| support/.vscode/ | Editor configuration templates |
+| support/Canadian-Fear-and-Greed.code-workspace | Open in VS Code to use workspace settings and F5 |
 
 Read the calculation in **fgindex/model.py**, then **fgindex/data.py** and **fgindex/pipeline.py**.
 **fgindex/charts.py** draws charts, **fgindex/live.py** retrieves data, and **fgindex/service.py** schedules refreshes.
@@ -64,7 +67,7 @@ Available components have equal weights. At least five are required to publish. 
 Canadian volatility series are ranked separately, with a labelled US VIX fallback. Composite breadth excludes legacy Venture exports.
 History begins in 2010 where sufficient warmup exists. The timeline is a research index. Predictive evaluation and trading tests remain future work.
 
-See [source requirements](docs/data-requirements.md) and [earlier development notes](docs/development-history.md) for detailed evidence, milestones, and AI-use disclosure.
+See [source requirements](support/docs/data-requirements.md) and [earlier development notes](support/docs/development-history.md) for detailed evidence, milestones, and AI-use disclosure.
 
 
 ## US VIX refresh and tab rendering

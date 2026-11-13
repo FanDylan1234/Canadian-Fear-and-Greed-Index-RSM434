@@ -126,6 +126,6 @@ def read_inputs(raw_dir, config):
     frame = frame.sort_index()
     if frame.tsx_price.notna().sum() == 0:
         raise ValueError(
-            "No TSX price history. Run python start.py --update --refresh on the Bloomberg workstation."
+            "No TSX price history. Run python runtostartindex.py --update --refresh on the Bloomberg workstation."
         )
     return frame, coverage
