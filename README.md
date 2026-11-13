@@ -47,7 +47,7 @@ Some source definitions still need review. Consult the Data & weights page befor
 | index_engine/ | Dashboard, index calculations, data downloads, and diagnostics |
 | support/config/index-config.json | Scoring windows and publication rules |
 | support/config/bloomberg-series.json | Bloomberg securities, fields, and verification flags |
-| requirements.txt | Required Python packages and allowed versions |
+| support/requirements.txt | Required Python packages and allowed versions |
 | support/assets/ | Dashboard appearance |
 | support/tests/ | Automated checks for calculation and data-access behavior |
 | support/docs/ | Source requirements and earlier research checkpoints |
@@ -78,4 +78,4 @@ Each tab now mounts a keyed page with distinct graph IDs. A browser-side visibil
 Put/call publication delays: the most recent valid calculated options score is carried forward into equal weighting. Raw ratios remain unfilled. The banner, options card, selected-date weights and exported `options_score_date` / `options_carried_forward` fields identify older observations. There is no carry before the first valid score; later observations never fill earlier dates. Historical values reflect this policy and may differ from earlier exports.
 
 ## Repository layout
-The root keeps the launcher, README, requirements.txt and .gitignore. Python implementation lives in index_engine/. Supporting configuration, assets, documentation, tests and editor setup live in support/. Keep .gitignore at the root so its rules apply to the whole repository; requirements.txt remains at the standard setup location used by the launcher.
+The root keeps the launcher, README and repository-wide .gitignore. Python implementation lives in index_engine/. Supporting configuration, assets, documentation, tests and editor setup live in support/. The launcher reads support/requirements.txt. A reference copy of ignore rules is in support/.gitignore; Git requires the active repository-wide rules at the root.

@@ -1,0 +1,13 @@
+# Reference copy: active repository-wide rules are in the root .gitignore.
+data-access-results/
+my-access-results/
+.env
+.env.*
+!.env.example
+.venv/
+__pycache__/
+*.pyc
+node_modules/
+index-results/
+*.log
+.pytest_cache/

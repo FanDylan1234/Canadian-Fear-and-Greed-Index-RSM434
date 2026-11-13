@@ -75,7 +75,7 @@ import importlib
 from importlib.metadata import version
 from packaging.requirements import Requirement
 from pathlib import Path
-for line in Path('requirements.txt').read_text().splitlines():
+for line in Path('support/requirements.txt').read_text().splitlines():
     if not line.strip() or line.startswith('#'):
         continue
     requirement = Requirement(line)
@@ -86,7 +86,7 @@ for module in ('dash', 'flask', 'pandas', 'numpy', 'plotly', 'tzdata'):
     if subprocess.run(
         [str(PYTHON), "-c", probe], cwd=ROOT, capture_output=True
     ).returncode:
-        requirements = str(ROOT / "requirements.txt")
+        requirements = str(ROOT / "support" / "requirements.txt")
         print(
             "Installing project packages. First setup may take a few minutes.",
             flush=True,
