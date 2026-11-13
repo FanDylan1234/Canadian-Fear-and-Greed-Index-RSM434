@@ -11,7 +11,7 @@ from pathlib import Path
 import re
 import sys
 import time
-from fgindex.data_checks import ROOT, yesterday, check_history, show_result, save_report
+from index_engine.data_checks import ROOT, yesterday, check_history, show_result, save_report
 
 
 def normalize_security(security):
@@ -262,7 +262,7 @@ def test_spec(client, spec, start, end, output):
 
 def run_checks(start="2010-01-01",end=None,config=None,output=None,client_factory=BloombergClient):
     end=end or yesterday()
-    config=Path(config) if config else ROOT/"bloomberg-series.json"
+    config=Path(config) if config else ROOT / "support" / "config" / "bloomberg-series.json"
     output=Path(output) if output else ROOT/"data-access-results"
     print("\nBLOOMBERG - ALL DATASET CHECKS",flush=True)
     print(f"Requested: {start} -> {end} (default excludes today's unfinished session)",flush=True)
@@ -271,7 +271,7 @@ def run_checks(start="2010-01-01",end=None,config=None,output=None,client_factor
         specs=json.loads(config.read_text(encoding="utf-8-sig"))
     except Exception as exc:
         report.update(config_error=str(exc))
-        print(f"[CONFIG ERROR] {exc}. Extract the ZIP and keep bloomberg-series.json beside this script.",flush=True)
+        print(f"[CONFIG ERROR] {exc}. Extract the ZIP and keep support/config/bloomberg-series.json inside the project folder.",flush=True)
         save_report(output,"bloomberg-report.json",report)
         return report
     client=None
@@ -309,7 +309,7 @@ def main(argv=None):
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--start",default="2010-01-01")
     parser.add_argument("--end",default=yesterday())
-    parser.add_argument("--config",type=Path,default=ROOT/"bloomberg-series.json")
+    parser.add_argument("--config",type=Path,default=ROOT / "support" / "config" / "bloomberg-series.json")
     args=parser.parse_args(argv)
     dt.date.fromisoformat(args.start)
     dt.date.fromisoformat(args.end)

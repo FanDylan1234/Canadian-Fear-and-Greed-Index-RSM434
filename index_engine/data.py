@@ -6,14 +6,14 @@ import json
 from pathlib import Path
 import numpy as np
 import pandas as pd
-from fgindex.pull_data import parse
+from index_engine.pull_data import parse
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
 def load_config(path=None):
     config = json.loads(
-        Path(path or ROOT / "index-config.json").read_text(encoding="utf-8-sig")
+        Path(path or ROOT / "support" / "config" / "index-config.json").read_text(encoding="utf-8-sig")
     )
     if not 1 <= config["rank_min_history"] <= config["rank_window"]:
         raise ValueError("Invalid scoring window")
@@ -24,7 +24,7 @@ def load_config(path=None):
 
 def read_inputs(raw_dir, config):
     raw_dir = Path(raw_dir)
-    specs = json.loads((ROOT / "bloomberg-series.json").read_text(encoding="utf-8-sig"))
+    specs = json.loads((ROOT / "support" / "config" / "bloomberg-series.json").read_text(encoding="utf-8-sig"))
     report_path = raw_dir.parent / "bloomberg-report.json"
     report = (
         json.loads(report_path.read_text(encoding="utf-8-sig"))

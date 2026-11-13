@@ -158,7 +158,7 @@ def run(module="app", arguments=None):
         if needs_bloomberg:
             prepare_bloomberg()
         return subprocess.call(
-            [str(PYTHON), "-u", "-m", f"fgindex.{module}", *(arguments or [])],
+            [str(PYTHON), "-u", "-m", f"index_engine.{module}", *(arguments or [])],
             cwd=ROOT,
         )
     except KeyboardInterrupt:

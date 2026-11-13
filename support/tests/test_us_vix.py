@@ -2,7 +2,7 @@ import io
 import tempfile
 import unittest
 from pathlib import Path
-from fgindex.us_vix import refresh_vix, decode_history
+from index_engine.us_vix import refresh_vix, decode_history
 
 class VixTests(unittest.TestCase):
     def test_timeout_uses_cboe_close_and_excludes_future(self):

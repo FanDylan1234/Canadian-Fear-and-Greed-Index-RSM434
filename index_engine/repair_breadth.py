@@ -3,10 +3,10 @@ import datetime as dt
 import json
 from pathlib import Path
 import pandas as pd
-from fgindex.data import ROOT
-from fgindex.pipeline import atomic_text
-from fgindex.pull_bloomberg import BloombergClient
-from fgindex.data_checks import yesterday, check_history
+from index_engine.data import ROOT
+from index_engine.pipeline import atomic_text
+from index_engine.pull_bloomberg import BloombergClient
+from index_engine.data_checks import yesterday, check_history
 
 # These candidates are evidenced in the project's saved Bloomberg field/security search.
 PAIRS = [

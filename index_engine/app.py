@@ -6,10 +6,10 @@ import json
 import pandas as pd
 from dash import Dash, Input, Output, State, ctx, dcc, html, no_update
 from flask import abort, send_file
-from fgindex.data import ROOT
-from fgindex.model import COMPONENTS, regime
-from fgindex.charts import gauge, history_chart, signal_chart, weights_chart, color
-from fgindex.service import DashboardService
+from index_engine.data import ROOT
+from index_engine.model import COMPONENTS, regime
+from index_engine.charts import gauge, history_chart, signal_chart, weights_chart, color
+from index_engine.service import DashboardService
 
 GRAPH_CONFIG = {"displayModeBar": False, "responsive": True}
 

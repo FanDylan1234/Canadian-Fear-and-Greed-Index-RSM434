@@ -16,7 +16,7 @@ For the configured F5 shortcut, open **support/Canadian-Fear-and-Greed.code-work
 
 In VS Code, select **Python: Select Interpreter**, then choose **.venv/Scripts/python.exe**.
 Package installation and execution must use the same interpreter. Packages installed in Anaconda are separate from Python 3.14.
-The **fgindex** folder contains the project code. Keep it beside **runtostartindex.py**.
+The **index_engine** folder contains the project code. Keep it beside **runtostartindex.py**.
 
 ## Optional commands
 | Task | PowerShell command |
@@ -44,9 +44,9 @@ Some source definitions still need review. Consult the Data & weights page befor
 | File or folder | Purpose |
 |---|---|
 | runtostartindex.py | Finds Python, installs packages, and launches the chosen task |
-| fgindex/ | Dashboard, index calculations, data downloads, and diagnostics |
-| index-config.json | Scoring windows and publication rules |
-| bloomberg-series.json | Bloomberg securities, fields, and verification flags |
+| index_engine/ | Dashboard, index calculations, data downloads, and diagnostics |
+| support/config/index-config.json | Scoring windows and publication rules |
+| support/config/bloomberg-series.json | Bloomberg securities, fields, and verification flags |
 | requirements.txt | Required Python packages and allowed versions |
 | support/assets/ | Dashboard appearance |
 | support/tests/ | Automated checks for calculation and data-access behavior |
@@ -54,8 +54,8 @@ Some source definitions still need review. Consult the Data & weights page befor
 | support/.vscode/ | Editor configuration templates |
 | support/Canadian-Fear-and-Greed.code-workspace | Open in VS Code to use workspace settings and F5 |
 
-Read the calculation in **fgindex/model.py**, then **fgindex/data.py** and **fgindex/pipeline.py**.
-**fgindex/charts.py** draws charts, **fgindex/live.py** retrieves data, and **fgindex/service.py** schedules refreshes.
+Read the calculation in **index_engine/model.py**, then **index_engine/data.py** and **index_engine/pipeline.py**.
+**index_engine/charts.py** draws charts, **index_engine/live.py** retrieves data, and **index_engine/service.py** schedules refreshes.
 
 Generated folders are excluded from Git. **.venv** holds installed packages, **data-access-results** holds downloads, and **index-results** holds index CSVs and charts.
 Keep downloaded inputs if you need offline use. Outputs can be rebuilt from those inputs.
@@ -76,3 +76,6 @@ FRED is attempted with a 10-second timeout. If it fails or returns invalid histo
 Each tab now mounts a keyed page with distinct graph IDs. A browser-side visibility guard hides the previous page immediately on navigation while the server prepares the next page.
 
 Put/call publication delays: the most recent valid calculated options score is carried forward into equal weighting. Raw ratios remain unfilled. The banner, options card, selected-date weights and exported `options_score_date` / `options_carried_forward` fields identify older observations. There is no carry before the first valid score; later observations never fill earlier dates. Historical values reflect this policy and may differ from earlier exports.
+
+## Repository layout
+The root keeps the launcher, README, requirements.txt and .gitignore. Python implementation lives in index_engine/. Supporting configuration, assets, documentation, tests and editor setup live in support/. Keep .gitignore at the root so its rules apply to the whole repository; requirements.txt remains at the standard setup location used by the launcher.

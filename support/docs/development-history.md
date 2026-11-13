@@ -49,7 +49,7 @@ The access-check notes below describe earlier checkpoints; consult current dashb
 3. In Spyder, open **run_all_checks.py** from the extracted folder.
 4. On the signed-in university Bloomberg computer, press **F5**.
 
-Keep every extracted file together, including `bloomberg-series.json` and `data_checks.py`. Run the actual extracted script, not the ZIP or a pasted untitled copy.
+Keep every extracted file together, including `support/config/bloomberg-series.json` and `data_checks.py`. Run the actual extracted script, not the ZIP or a pasted untitled copy.
 
 Requires Python 3.10+ and Bloomberg's official `blpapi` in Spyder's Python environment. Public downloads use only Python's standard library. [Official Bloomberg SDK instructions](https://professional.bloomberg.com/support/api-library/).
 
@@ -91,7 +91,7 @@ The checker flags late starts, early endings, long internal gaps, missing values
 
 Bloomberg queries are bounded to four candidate pairs per dataset. A small sample is tried before full history; discovery/entitlement errors are saved. If no recent sample is available, full history is still attempted to distinguish stale data from no history. Field metadata and security names/currency are saved for definition review. The user's verified TSX price mapping is included by default.
 
-After a Bloomberg candidate's definition has been reviewed, record its chosen `security`, `field`, and `verified: true` in `bloomberg-series.json`. Downloaded candidates remain REVIEW until then. No US fallback is silently substituted.
+After a Bloomberg candidate's definition has been reviewed, record its chosen `security`, `field`, and `verified: true` in `support/config/bloomberg-series.json`. Downloaded candidates remain REVIEW until then. No US fallback is silently substituted.
 
 ## Reports
 

@@ -6,13 +6,13 @@ import math
 from pathlib import Path
 from .data import ROOT, load_config
 from .pipeline import atomic_text
-from fgindex.pull_bloomberg import BloombergClient
-from fgindex.pull_data import parse, SOURCES
+from index_engine.pull_bloomberg import BloombergClient
+from index_engine.pull_data import parse, SOURCES
 import urllib.request
 
 
 def refresh_daily(raw_dir=None, client_factory=BloombergClient):
-    from fgindex.data_checks import yesterday
+    from index_engine.data_checks import yesterday
 
     raw_dir = Path(raw_dir or ROOT / "data-access-results/raw")
     raw_dir.mkdir(parents=True, exist_ok=True)
@@ -23,7 +23,7 @@ def refresh_daily(raw_dir=None, client_factory=BloombergClient):
         else {"results": []}
     )
     previous = {r["id"]: r for r in old.get("results", [])}
-    specs = json.loads((ROOT / "bloomberg-series.json").read_text(encoding="utf-8-sig"))
+    specs = json.loads((ROOT / "support" / "config" / "bloomberg-series.json").read_text(encoding="utf-8-sig"))
     results, errors = [], []
     client = None
     try:
@@ -68,7 +68,7 @@ def refresh_daily(raw_dir=None, client_factory=BloombergClient):
                 frame = pd.DataFrame(rows)
                 if frame.date.duplicated().any() or not frame.value.notna().any():
                     raise ValueError("Duplicate dates or empty history")
-                from fgindex.data_checks import check_history
+                from index_engine.data_checks import check_history
 
                 quality = check_history(rows, spec, start, end)
                 if "COUNTS_NOT_NONNEGATIVE_INTEGERS" in quality["issues"]:

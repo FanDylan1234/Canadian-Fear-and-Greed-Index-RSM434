@@ -4,7 +4,7 @@ from pathlib import Path
 import sys
 
 ROOT=Path(__file__).resolve().parents[1]
-from fgindex.data_checks import yesterday, save_report
+from index_engine.data_checks import yesterday, save_report
 
 def main(start="2010-01-01",end=None):
     end=end or yesterday()
@@ -13,8 +13,8 @@ def main(start="2010-01-01",end=None):
     if start>end:
         raise ValueError("Start date must precede end date")
     print("\nALL PROJECT DATA CHECKS: "+start+" -> "+end,flush=True)
-    from fgindex.pull_data import main as public_checks
-    from fgindex.pull_bloomberg import run_checks
+    from index_engine.pull_data import main as public_checks
+    from index_engine.pull_bloomberg import run_checks
     output=ROOT/"data-access-results"
     public=public_checks(output,start,end)
     bloomberg=run_checks(start,end,output=output)

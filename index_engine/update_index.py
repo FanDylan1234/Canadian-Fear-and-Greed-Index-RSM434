@@ -2,8 +2,8 @@
 
 import argparse
 from pathlib import Path
-from fgindex.data import ROOT, load_config
-from fgindex.pipeline import build
+from index_engine.data import ROOT, load_config
+from index_engine.pipeline import build
 
 
 def main():
@@ -21,14 +21,14 @@ def main():
     args = parser.parse_args()
     status = None
     if args.refresh:
-        from fgindex.live import refresh_daily
+        from index_engine.live import refresh_daily
 
         status = refresh_daily(args.raw_dir)
         print(status["status"])
         for error in status["errors"]:
             print("  " + error)
     result, manifest = build(args.raw_dir, args.output, load_config(args.config))
-    from fgindex.charts import history_chart
+    from index_engine.charts import history_chart
 
     history_chart(result.history).write_html(
         args.output / "index-chart.html", include_plotlyjs=True

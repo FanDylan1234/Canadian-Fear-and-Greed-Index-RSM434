@@ -9,7 +9,7 @@ import math
 from pathlib import Path
 import urllib.request
 from collections import Counter
-from fgindex.data_checks import yesterday, check_history
+from index_engine.data_checks import yesterday, check_history
 
 ROOT = Path(__file__).resolve().parents[1]
 OUTPUT = ROOT / "data-access-results"

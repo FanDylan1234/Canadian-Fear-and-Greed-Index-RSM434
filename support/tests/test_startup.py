@@ -4,8 +4,8 @@ from pathlib import Path
 from unittest.mock import patch
 import pandas as pd
 from test_index import fixture
-from fgindex.data import load_config, read_inputs
-from fgindex.pipeline import build
+from index_engine.data import load_config, read_inputs
+from index_engine.pipeline import build
 import runtostartindex as start
 
 class StartupAndDateTests(unittest.TestCase):
@@ -20,7 +20,7 @@ class StartupAndDateTests(unittest.TestCase):
                 source[name].rename('value').to_csv(raw / (name + '.csv'), index_label='date')
             inputs, _ = read_inputs(raw, load_config())
             self.assertIsInstance(inputs.index, pd.DatetimeIndex)
-            with patch('fgindex.data_checks.yesterday', return_value='2012-12-30'):
+            with patch('index_engine.data_checks.yesterday', return_value='2012-12-30'):
                 result, _ = build(raw, Path(folder) / 'output')
             self.assertLessEqual(result.history.index.max(), pd.Timestamp('2012-12-30'))
             self.assertTrue((Path(folder) / 'output/history.csv').exists())
