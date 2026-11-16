@@ -7,8 +7,8 @@ from pathlib import Path
 import tempfile
 import os
 import pandas as pd
-from .data import ROOT, load_config, read_inputs
-from .model import build_index
+from .loadpulleddata import ROOT, load_config, read_inputs
+from .buildindicatorsfromdata import build_index
 
 
 def atomic_text(path, text):

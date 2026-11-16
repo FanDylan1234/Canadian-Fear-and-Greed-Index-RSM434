@@ -54,8 +54,8 @@ Some source definitions still need review. Consult the Data & weights page befor
 | support/.vscode/ | Editor configuration templates |
 | support/Canadian-Fear-and-Greed.code-workspace | Open in VS Code to use workspace settings and F5 |
 
-Read the calculation in **index_engine/model.py**, then **index_engine/data.py** and **index_engine/pipeline.py**.
-**index_engine/charts.py** draws charts, **index_engine/live.py** retrieves data, and **index_engine/service.py** schedules refreshes.
+Read the calculation in **index_engine/buildindicatorsfromdata.py**, then **index_engine/loadpulleddata.py** and **index_engine/pipeline.py**.
+**index_engine/chartsdesign.py** draws charts, **index_engine/liverefresh.py** retrieves data, and **index_engine/service.py** schedules refreshes.
 
 Generated folders are excluded from Git. **.venv** holds installed packages, **data-access-results** holds downloads, and **index-results** holds index CSVs and charts.
 Keep downloaded inputs if you need offline use. Outputs can be rebuilt from those inputs.

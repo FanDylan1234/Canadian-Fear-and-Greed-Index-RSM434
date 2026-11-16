@@ -3,7 +3,7 @@ import datetime as dt
 import json
 from pathlib import Path
 import pandas as pd
-from index_engine.data import ROOT
+from index_engine.loadpulleddata import ROOT
 from index_engine.pipeline import atomic_text
 from index_engine.pull_bloomberg import BloombergClient
 from index_engine.data_checks import yesterday, check_history

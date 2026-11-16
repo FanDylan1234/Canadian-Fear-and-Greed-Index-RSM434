@@ -4,7 +4,7 @@ from pathlib import Path
 from unittest.mock import patch
 import pandas as pd
 from test_index import fixture
-from index_engine.data import load_config, read_inputs
+from index_engine.loadpulleddata import load_config, read_inputs
 from index_engine.pipeline import build
 import runtostartindex as start
 
@@ -27,7 +27,7 @@ class StartupAndDateTests(unittest.TestCase):
 
     def test_launcher_selects_task_and_forwards_options(self):
         for arguments, module, remaining in [
-            (["--offline"], "app", ["--offline"]),
+            (["--offline"], "dashdesign", ["--offline"]),
             (["--update", "--refresh"], "update_index", ["--refresh"]),
             (["--check-data"], "run_all_checks", []),
         ]:

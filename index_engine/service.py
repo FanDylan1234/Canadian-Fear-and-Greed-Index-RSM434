@@ -2,7 +2,7 @@
 
 import threading
 import time
-from .data import load_config
+from .loadpulleddata import load_config
 from .pipeline import build
 
 
@@ -58,7 +58,7 @@ class DashboardService:
             ).start()
 
     def _run(self):
-        from .live import quote_snapshot, refresh_daily
+        from .liverefresh import quote_snapshot, refresh_daily
 
         last_daily = 0
         while not self.stop.is_set():

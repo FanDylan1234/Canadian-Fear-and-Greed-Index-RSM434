@@ -4,7 +4,7 @@ import datetime as dt
 import json
 import math
 from pathlib import Path
-from .data import ROOT, load_config
+from .loadpulleddata import ROOT, load_config
 from .pipeline import atomic_text
 from index_engine.pull_bloomberg import BloombergClient
 from index_engine.pull_data import parse, SOURCES

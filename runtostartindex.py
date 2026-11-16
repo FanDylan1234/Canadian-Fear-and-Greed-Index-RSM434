@@ -133,11 +133,11 @@ def prepare_bloomberg():
     subprocess.run(probe, check=True)
 
 
-def run(module="app", arguments=None):
+def run(module="dashdesign", arguments=None):
     """Launch a project entry point with packages installed in the same Python."""
     try:
         arguments = arguments or []
-        if module == "app":
+        if module == "dashdesign":
             options = argparse.ArgumentParser(add_help=False)
             options.add_argument("--port", type=int, default=8050)
             selected, _ = options.parse_known_args(arguments)
@@ -151,7 +151,7 @@ def run(module="app", arguments=None):
             )
         prepare_environment()
         needs_bloomberg = (
-            (module == "app" and "--offline" not in arguments)
+            (module == "dashdesign" and "--offline" not in arguments)
             or (module == "update_index" and "--refresh" in arguments)
             or module in ("run_all_checks", "repair_breadth")
         )
@@ -185,7 +185,7 @@ def main():
     modes.add_argument("--repair-breadth", dest="module", action="store_const",
                        const="repair_breadth", help="Replace legacy breadth data")
     args, remaining = parser.parse_known_args()
-    return run(args.module or "app", remaining)
+    return run(args.module or "dashdesign", remaining)
 
 
 if __name__ == "__main__":

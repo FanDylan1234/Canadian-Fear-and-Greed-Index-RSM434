@@ -3,7 +3,7 @@
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
-from .model import regime
+from .buildindicatorsfromdata import regime
 
 BANDS = [
     (0, 25, "Extreme fear", "#dd7965"),
@@ -197,7 +197,7 @@ def signal_chart(result, component, days=252):
 
 
 def weights_chart(weights):
-    from .model import COMPONENTS
+    from .buildindicatorsfromdata import COMPONENTS
 
     fig = go.Figure()
     colors = [

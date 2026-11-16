@@ -5,9 +5,9 @@ import unittest
 from unittest.mock import patch
 import numpy as np
 import pandas as pd
-from index_engine.data import load_config, read_inputs
-from index_engine.model import past_percentile, aggregate, mask_stale, build_index, regime
-from index_engine.live import quote_snapshot
+from index_engine.loadpulleddata import load_config, read_inputs
+from index_engine.buildindicatorsfromdata import past_percentile, aggregate, mask_stale, build_index, regime
+from index_engine.liverefresh import quote_snapshot
 
 
 def fixture():
@@ -126,7 +126,7 @@ class IndexTests(unittest.TestCase):
     def test_regime_boundaries(self):
         self.assertEqual([regime(x) for x in [0, 25, 45, 55, 75, 100]],
                          ["Extreme fear", "Fear", "Neutral", "Neutral", "Greed", "Extreme greed"])
-        from index_engine.charts import color, BANDS
+        from index_engine.chartsdesign import color, BANDS
         colors = {label: shade for _, _, label, shade in BANDS}
         for value in (0, 25, 45, 55, 75, 100):
             self.assertEqual(color(value), colors[regime(value)])
@@ -135,7 +135,7 @@ class IndexTests(unittest.TestCase):
 class DashboardTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        from index_engine.app import create_app
+        from index_engine.dashdesign import create_app
         from index_engine.pipeline import build
         from index_engine.service import DashboardService
         # Fully offline deterministic inputs; no dependency on licensed local exports.
@@ -162,7 +162,7 @@ class DashboardTests(unittest.TestCase):
         layout = self.client.get("/_dash-layout").get_json()
         self.assert_clean_text(layout)
         self.assertIn("Bloomberg \u00b7 Montr\u00e9al Exchange \u00b7 FRED", str(layout))
-        from index_engine.charts import gauge
+        from index_engine.chartsdesign import gauge
         self.assertIn("\u2014", str(gauge(float("nan")).to_plotly_json()))
 
     def test_dash_routes(self):
