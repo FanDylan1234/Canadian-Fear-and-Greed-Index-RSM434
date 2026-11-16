@@ -79,7 +79,7 @@ class DashboardService:
                     with self.lock:
                         self.refresh_error = " | ".join(report["errors"]) or None
                         self.status = report["status"] + (
-                            " ï¿½ " + " | ".join(report["errors"][:3])
+                            " \u00b7 " + " | ".join(report["errors"][:3])
                             if report["errors"]
                             else ""
                         )

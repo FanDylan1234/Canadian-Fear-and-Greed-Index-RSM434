@@ -191,6 +191,9 @@ def signal_chart(result, component, days=252):
                 connectgaps=False,
             )
         )
+        if component == "breadth":
+            fig.update_yaxes(tickformat=".2%")
+            fig.update_traces(hovertemplate="%{y:.2%}<extra>Market breadth</extra>")
         if component == "safe_haven":
             fig.update_yaxes(tickformat=".0%")
     return style(fig, 230)
