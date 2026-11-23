@@ -61,13 +61,28 @@ def refresh_daily(raw_dir=None, client_factory=BloombergClient):
                 start = load_config()["history_start"]
                 if name in ("canada_vixc_history", "canada_vixi_history"):
                     start = max(start, spec["expected_start"])
-                # Full daily history is small; a new immutable snapshot avoids merge/revision errors.
-                rows = client.history(security, field, start, end)
                 import pandas as pd
+
+                old_file = raw_dir / (name + ".csv")
+                old_frame = None
+                request_start = start
+                same_mapping = prior.get("security") == security and prior.get("field") == field
+                cached_start = prior.get("history_start") or prior.get("coverage", {}).get("expected_start")
+                if same_mapping and cached_start == start and old_file.exists():
+                    old_frame = pd.read_csv(old_file)
+                    latest = dt.date.fromisoformat(old_frame.date.max())
+                    request_start = max(start, (latest - dt.timedelta(days=7)).isoformat())
+                print(f"[Data] {name}: requesting {request_start} through {end}", flush=True)
+                rows = client.history(security, field, request_start, end)
 
                 frame = pd.DataFrame(rows)
                 if frame.date.duplicated().any() or not frame.value.notna().any():
                     raise ValueError("Duplicate dates or empty history")
+                if old_frame is not None:
+                    if frame.date.max() < old_frame.date.max():
+                        raise ValueError("Refresh shortened historical coverage; retained cache")
+                    frame = frame.set_index("date").combine_first(old_frame.set_index("date")).sort_index().reset_index()
+                    rows = frame.astype(object).where(frame.notna(), None).to_dict("records")
                 from index_engine.data_checks import check_history
 
                 quality = check_history(rows, spec, start, end)
@@ -78,9 +93,9 @@ def refresh_daily(raw_dir=None, client_factory=BloombergClient):
                     raise ValueError("Invalid numeric values; retained cache")
                 if spec.get("kind") in ("level", "volatility") and (numeric <= 0).any():
                     raise ValueError("Nonpositive level; retained cache")
-                old_file = raw_dir / (name + ".csv")
-                if old_file.exists():
+                if old_frame is None and old_file.exists():
                     old_frame = pd.read_csv(old_file)
+                if old_frame is not None:
                     if (
                         frame.date.min() > old_frame.date.min()
                         or frame.date.max() < old_frame.date.max()
@@ -88,9 +103,6 @@ def refresh_daily(raw_dir=None, client_factory=BloombergClient):
                         raise ValueError(
                             "Refresh shortened historical coverage; retained cache"
                         )
-                same_mapping = (
-                    prior.get("security") == security and prior.get("field") == field
-                )
                 metadata = prior.get("metadata") if same_mapping else None
                 metadata = metadata or client.metadata(security, field)
                 if name in ("tsx_advancing", "tsx_declining"):
@@ -107,10 +119,12 @@ def refresh_daily(raw_dir=None, client_factory=BloombergClient):
                         raise ValueError(
                             "Breadth metadata does not confirm Composite; cache retained"
                         )
+                atomic_text(old_file, frame.to_csv(index=False))
                 row.update(
                     metadata=metadata,
                     coverage=quality,
                     refresh_status="Updated",
+                    history_start=start,
                     refreshed_at=dt.datetime.now(dt.timezone.utc).isoformat(),
                 )
                 row["definition_verified"] = bool(
@@ -118,10 +132,10 @@ def refresh_daily(raw_dir=None, client_factory=BloombergClient):
                     if explicit
                     else prior.get("definition_verified", False)
                 )
-                atomic_text(old_file, frame.to_csv(index=False))
             except Exception as exc:
                 row["refresh_status"] = "Retained cache: " + str(exc)
                 errors.append(name + ": " + str(exc))
+                print(f"[Data] {name} failed: {exc}", flush=True)
             results.append(row)
     finally:
         if client is not None:
@@ -134,6 +148,7 @@ def refresh_daily(raw_dir=None, client_factory=BloombergClient):
     for source, url, _, _ in SOURCES:
         if source not in ("fred_vix", "mx_equity_put_call"):
             continue
+        print(f"[Data] Refreshing {source}", flush=True)
         try:
             if source == "fred_vix":
                 from .us_vix import refresh_vix

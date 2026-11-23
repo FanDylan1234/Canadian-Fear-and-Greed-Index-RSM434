@@ -491,7 +491,7 @@ def create_app(offline=False, start_worker=False, service=None):
                         html.P(
                             "The first download is running. This page updates automatically."
                             if busy
-                            else "Sign into Bloomberg Terminal and try Refresh data."
+                            else "See the refresh result below and the [Data] messages in your terminal."
                         ),
                         html.P(status, className="muted"),
                     ],

@@ -79,11 +79,14 @@ class DashboardService:
                         "Refreshing daily sources; cached readings remain visible."
                     )
                 try:
+                    print(f"[Data] Refreshing local history in {self.raw_dir}", flush=True)
                     report = refresh_daily(self.raw_dir)
                     with self.lock:
                         self.refresh_error = " | ".join(report["errors"]) or None
+                        if any("WORKFLOW_REVIEW_NEEDED" in message for message in report["errors"]):
+                            self.refresh_error = "Bloomberg requires workflow review (WORKFLOW_REVIEW_NEEDED). Open HELP HELP in Bloomberg Terminal and provide the error from this terminal."
                         self.status = report["status"] + (
-                            " \u00b7 " + " | ".join(report["errors"][:3])
+                            " \u00b7 " + self.refresh_error
                             if report["errors"]
                             else ""
                         )
@@ -94,6 +97,7 @@ class DashboardService:
                 finally:
                     with self.lock:
                         self.refreshing = False
+                    print(f"[Data] {self.status}", flush=True)
                     last_daily = time.monotonic()
             try:
                 quote = quote_snapshot()
