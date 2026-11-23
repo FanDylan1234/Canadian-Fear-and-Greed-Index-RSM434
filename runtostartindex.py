@@ -139,13 +139,12 @@ def run(module="dashdesign", arguments=None):
         arguments = arguments or []
         if module == "dashdesign":
             options = argparse.ArgumentParser(add_help=False)
-            options.add_argument("--host", default="127.0.0.1")
             options.add_argument("--port", type=int, default=8050)
             selected, _ = options.parse_known_args(arguments)
             if not 1 <= selected.port <= 65535:
                 raise RuntimeError("Port must be between 1 and 65535.")
             print(
-                f"\nDASHBOARD LINK: http://{selected.host}:{selected.port}\n"
+                f"\nDASHBOARD LINK: http://127.0.0.1:{selected.port}\n"
                 "Setup is starting. Open this link once the terminal says Running on.\n"
                 "Keep this terminal open while using the dashboard.\n",
                 flush=True,
@@ -176,7 +175,7 @@ def run(module="dashdesign", arguments=None):
 def main():
     parser = argparse.ArgumentParser(
         description="Open the dashboard. Optional modes run without a browser.",
-        epilog="Dashboard options: --offline, --host ADDRESS, --port PORT, --raw-dir PATH. Pipeline option: --refresh.",
+        epilog="Dashboard options: --offline, --port PORT. Pipeline option: --refresh.",
     )
     modes = parser.add_mutually_exclusive_group()
     modes.add_argument("--update", dest="module", action="store_const",

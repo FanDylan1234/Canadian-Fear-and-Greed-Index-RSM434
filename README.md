@@ -18,16 +18,6 @@ In VS Code, select **Python: Select Interpreter**, then choose **.venv/Scripts/p
 Package installation and execution must use the same interpreter. Packages installed in Anaconda are separate from Python 3.14.
 The **index_engine** folder contains the project code. Keep it beside **runtostartindex.py**.
 
-## Use one dashboard from multiple devices
-
-On a workstation with cached history, run the following command from the project folder. Replace 192.168.1.25 with the workstation’s actual network IPv4 address (shown by `ipconfig` on Windows). Replace the example raw directory with the existing cache location, or omit that option to use the cache beside the launcher.
-
-```powershell
-python runtostartindex.py --offline --host 192.168.1.25 --raw-dir "D:\MarketData\data-access-results\raw"
-```
-
-Open the printed URL on any device that can reach that workstation on the approved lab network or VPN. Leave the host running. Viewers only need a browser. For live updates, run on the entitled Bloomberg workstation with writable cache access and omit `--offline`. The dashboard includes downloads and refresh controls and has no built-in authentication. Limit network access to authorized viewers. An internet-facing deployment requires an access-controlled host and permission to share the data.
-
 ## Optional commands
 | Task | PowerShell command |
 |---|---|
