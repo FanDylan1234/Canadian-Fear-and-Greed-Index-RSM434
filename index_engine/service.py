@@ -2,14 +2,17 @@
 
 import threading
 import time
-from .loadpulleddata import load_config
+from pathlib import Path
+from .loadpulleddata import ROOT, load_config
 from .pipeline import build
 
 
 class DashboardService:
     def __init__(self, offline=False, raw_dir=None, output=None):
         self.config = load_config()
-        self.offline, self.raw_dir, self.output = offline, raw_dir, output
+        self.offline, self.output = offline, output
+        self.raw_dir = Path(raw_dir) if raw_dir is not None else ROOT / "data-access-results" / "raw"
+        self.raw_dir.mkdir(parents=True, exist_ok=True)
         self.lock = threading.Lock()
         self.wake = threading.Event()
         self.stop = threading.Event()
@@ -60,12 +63,13 @@ class DashboardService:
     def _run(self):
         from .liverefresh import quote_snapshot, refresh_daily
 
-        last_daily = 0
+        last_daily = None
         while not self.stop.is_set():
             requested = self.wake.is_set()
             self.wake.clear()
             if (
-                requested
+                last_daily is None
+                or requested
                 or time.monotonic() - last_daily
                 >= self.config["daily_refresh_minutes"] * 60
             ):

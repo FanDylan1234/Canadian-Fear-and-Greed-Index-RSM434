@@ -9,6 +9,29 @@ from index_engine.pipeline import build
 import runtostartindex as start
 
 class StartupAndDateTests(unittest.TestCase):
+    def test_checkout_initializes_and_reuses_its_own_cache(self):
+        from index_engine.service import DashboardService
+        with tempfile.TemporaryDirectory() as folder, patch('index_engine.service.ROOT', Path(folder)):
+            cache = Path(folder) / 'data-access-results' / 'raw'
+            service = DashboardService(offline=True)
+            self.assertEqual(service.raw_dir, cache)
+            saved = cache / 'saved.csv'
+            saved.write_text('existing')
+            DashboardService(offline=True)
+            self.assertEqual(saved.read_text(), 'existing')
+
+    def test_first_online_refresh_runs_even_immediately_after_machine_boot(self):
+        from index_engine.service import DashboardService
+        with tempfile.TemporaryDirectory() as folder:
+            service = DashboardService(raw_dir=Path(folder) / 'raw')
+            with patch('index_engine.service.time.monotonic', return_value=1), patch(
+                'index_engine.liverefresh.refresh_daily', return_value={'errors': [], 'status': 'Updated'}
+            ) as refresh, patch('index_engine.liverefresh.quote_snapshot'), patch.object(
+                service.wake, 'wait', side_effect=lambda _: service.stop.set()
+            ):
+                service._run()
+            refresh.assert_called_once_with(service.raw_dir)
+
     def test_missing_optional_files_keep_dates_and_pipeline_builds(self):
         with tempfile.TemporaryDirectory() as folder:
             raw = Path(folder) / 'raw'

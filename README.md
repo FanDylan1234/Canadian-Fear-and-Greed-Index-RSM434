@@ -35,7 +35,7 @@ An unusable existing .venv can be renamed so setup creates a fresh one.
 ## Bloomberg and source data
 Sign into Bloomberg Terminal on the lab workstation. Install Bloomberg's official blpapi SDK into **.venv/Scripts/python.exe** using the institution's SDK instructions.
 It is a separate vendor dependency. The dashboard can open without it, but Bloomberg refreshes require it.
-A fresh download has no market history. Refresh on the Bloomberg workstation to populate data-access-results/raw.
+Each checkout creates its own data-access-results/raw folder at startup and reuses it on later runs. Online startup requests source histories automatically. Offline mode uses previously downloaded files. A first run needs successful source requests to populate the cache.
 
 Daily observations end at yesterday in Toronto. Quotes update separately. Failed refreshes retain cached inputs.
 Some source definitions still need review. Consult the Data & weights page before interpreting the index.
