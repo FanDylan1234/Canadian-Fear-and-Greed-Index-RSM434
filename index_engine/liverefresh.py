@@ -25,6 +25,7 @@ def refresh_daily(raw_dir=None, client_factory=BloombergClient):
     previous = {r["id"]: r for r in old.get("results", [])}
     specs = json.loads((ROOT / "support" / "config" / "bloomberg-series.json").read_text(encoding="utf-8-sig"))
     results, errors = [], []
+    review_required = False
     client = None
     try:
         try:
@@ -34,6 +35,9 @@ def refresh_daily(raw_dir=None, client_factory=BloombergClient):
         for spec in specs:
             name = spec["id"]
             prior = previous.get(name, {})
+            if review_required:
+                results.append(dict(prior, id=name, refresh_status="Skipped: Bloomberg workflow review"))
+                continue
             # Never rerun candidate discovery silently during normal refresh.
             explicit = spec.get("verified") and spec.get("field")
             security = (
@@ -72,6 +76,19 @@ def refresh_daily(raw_dir=None, client_factory=BloombergClient):
                     old_frame = pd.read_csv(old_file)
                     latest = dt.date.fromisoformat(old_frame.date.max())
                     request_start = max(start, (latest - dt.timedelta(days=7)).isoformat())
+                if name == "tsx_price" and not old_file.exists():
+                    probe_start = max(start, (dt.date.fromisoformat(end) - dt.timedelta(days=6)).isoformat())
+                    print(f"[Data] Testing Bloomberg TSX history access: {probe_start} through {end}", flush=True)
+                    try:
+                        client.history(security, field, probe_start, end)
+                    except RuntimeError as exc:
+                        if "WORKFLOW_REVIEW_NEEDED" in str(exc):
+                            raise RuntimeError(f"Recent TSX access check ({probe_start} to {end}): {exc}") from exc
+                        # A holiday week can be empty even when the full history is available.
+                        if "No numeric historical observations" not in str(exc):
+                            raise
+                    else:
+                        print("[Data] Recent TSX history access confirmed.", flush=True)
                 print(f"[Data] {name}: requesting {request_start} through {end}", flush=True)
                 rows = client.history(security, field, request_start, end)
 
@@ -133,7 +150,8 @@ def refresh_daily(raw_dir=None, client_factory=BloombergClient):
                     else prior.get("definition_verified", False)
                 )
             except Exception as exc:
-                row["refresh_status"] = "Retained cache: " + str(exc)
+                review_required = "WORKFLOW_REVIEW_NEEDED" in str(exc)
+                row["refresh_status"] = ("Retained cache: " if (raw_dir / (name + ".csv")).exists() else "Download failed: ") + str(exc)
                 errors.append(name + ": " + str(exc))
                 print(f"[Data] {name} failed: {exc}", flush=True)
             results.append(row)

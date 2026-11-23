@@ -83,8 +83,8 @@ class DashboardService:
                     report = refresh_daily(self.raw_dir)
                     with self.lock:
                         self.refresh_error = " | ".join(report["errors"]) or None
-                        if any("WORKFLOW_REVIEW_NEEDED" in message for message in report["errors"]):
-                            self.refresh_error = "Bloomberg requires workflow review (WORKFLOW_REVIEW_NEEDED). Open HELP HELP in Bloomberg Terminal and provide the error from this terminal."
+                        if self.refresh_error and "WORKFLOW_REVIEW_NEEDED" in self.refresh_error:
+                            self.refresh_error += " | Remaining Bloomberg histories skipped for this refresh."
                         self.status = report["status"] + (
                             " \u00b7 " + self.refresh_error
                             if report["errors"]
