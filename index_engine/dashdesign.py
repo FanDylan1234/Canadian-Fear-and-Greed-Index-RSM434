@@ -329,8 +329,8 @@ def quote_details(quotes, error):
     )
 
 
-def create_app(offline=False, start_worker=False, service=None):
-    service = service or DashboardService(offline=offline)
+def create_app(offline=False, start_worker=False, service=None, raw_dir=None):
+    service = service or DashboardService(offline=offline, raw_dir=raw_dir)
     app = Dash(
         __name__,
         assets_folder=str(ROOT / "support" / "assets"),
@@ -575,12 +575,14 @@ if __name__ == "__main__":
         action="store_true",
         help="Use cached sources without network requests",
     )
+    parser.add_argument("--host", default="127.0.0.1", help="Local IPv4 address or hostname to serve on")
+    parser.add_argument("--raw-dir", help="Path to existing raw source files (keep bloomberg-report.json in its parent folder)")
     parser.add_argument("--port", type=int, default=8050)
     args = parser.parse_args()
     print(
-        f"\nCanadian Fear & Greed Index\nOpen in your browser: http://127.0.0.1:{args.port}\nKeep this terminal open. Press Ctrl+C to stop.\n",
+        f"\nCanadian Fear & Greed Index\nOpen in your browser: http://{args.host}:{args.port}\nKeep this terminal open. Press Ctrl+C to stop.\n",
         flush=True,
     )
-    create_app(offline=args.offline, start_worker=True).run(
-        host="127.0.0.1", port=args.port, debug=False
+    create_app(offline=args.offline, start_worker=True, raw_dir=args.raw_dir).run(
+        host=args.host, port=args.port, debug=False
     )
