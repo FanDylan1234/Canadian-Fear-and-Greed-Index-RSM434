@@ -22,7 +22,10 @@ def day(x):
 
 
 def graph(name, fig):
-    return dcc.Graph(id=name, figure=fig, config={"displaylogo": False, "responsive": True})
+    # Give Dash a real container height even when the tab first mounts while hidden.
+    return dcc.Graph(id=name, figure=fig, responsive=True,
+                     style={"height": f"{fig.layout.height}px", "width": "100%"},
+                     config={"displaylogo": False})
 
 
 def download(label, filename):
@@ -114,17 +117,32 @@ def vix_comparison(r):
     valid = r.comparison.dropna(subset=["advantage"])
     wins = int((valid.advantage > 0).sum())
     ties = int((valid.advantage == 0).sum())
-    finding = (f"The Canadian index had lower forecast error in {wins} of {len(valid)} comparisons. "
-               f"US VIX had lower error in {len(valid)-wins-ties}."
-               if len(valid) else "No paired forecasts have matured.")
+    if len(valid):
+        losses = len(valid) - wins - ties
+        finding = (f"Across {len(valid)} tests, US VIX had lower root mean squared error (RMSE) in {losses}, "
+                   f"the Canadian index in {wins}, with {ties} ties.")
+    else:
+        finding = "No paired forecasts have matured."
     rows = [[f"{x.months}m", "TSX total return" if x.target == "return" else "Annualized volatility",
              f"{x.n:,}", pct(x.index_rmse), pct(x.vix_rmse),
              f"{100*x.advantage:+.3f} pp" if pd.notna(x.advantage) else "—"]
             for x in r.comparison.itertuples()]
     hold = r.audit[r.audit.period == "holdout"]
     fallback = (hold.volatility_source == "US VIX fallback").sum()
+    one_month = valid[(valid.months == 1) & (valid.target == "return")]
+    example = None
+    if not one_month.empty:
+        m = one_month.iloc[0]
+        example = html.P(f"For one-month returns, the Canadian forecast was closer on "
+                         f"{int(m.index_closer_days):,} of {int(m.n):,} dates. Across all those dates, "
+                         f"its RMSE was {pct(m.index_rmse)} and US VIX’s was {pct(m.vix_rmse)}. "
+                         f"The gap was {abs(m.advantage)*100:.3f} percentage points.")
     return [html.H2("Does the Canadian index beat US VIX alone?"), html.P(finding),
+            html.P("Each test compares errors across many dates for one outcome and horizon. "
+                   "The six tests cover returns and volatility over one, three and six months. "
+                   "A signal can win a test even when the other signal is closer on many individual days."),
             table(["Horizon", "Forecast target", "Paired days", "Index RMSE", "VIX RMSE", "Index advantage"], rows),
+            example,
             html.P("Each signal forecasts the historical mean outcome for its own quintile. Both sets of "
                    "means use the same training dates and only outcomes completed by December 31, 2019. "
                    "US VIX uses its own inverted trailing percentile, so high implied volatility ranks as fear."),
@@ -188,13 +206,15 @@ def research_page(view, r, manifest):
     pages = {"prediction": prediction, "episodes": episodes, "vix": vix_comparison, "backtest": backtest}
     sources = [row for row in manifest["coverage"] if row["dataset"] in {
         "tsx_total_return", "canada_bond_total_return", "fred_vix"}]
-    source_rows = [[s["dataset"] + ".csv", s["security"], s["field"], s["last"],
-                    "Definition under review" if s["review"] else s["status"]] for s in sources]
+    source_rows = [[s["dataset"] + ".csv", s["security"], s["field"], s["last"], s["status"]] for s in sources]
+    basis_warning = next((s["status"] for s in sources if s.get("basis_break_date")), None)
     return [html.P(f"Holdout · {day(hold.index[0])} – {day(hold.index[-1])}", className="research-period"),
+            html.P(f"TSX total-return data: {basis_warning}. Refresh data to reload the fixed-start history.",
+                   role="status") if basis_warning else None,
             *pages[view](r),
             html.Details([html.Summary("Trace the data and reproduce the results"),
                           table(["Local source file", "Instrument / distributor", "Field", "Last source date",
-                                 "Repository check"], source_rows),
+                                 "Status"], source_rows),
                           html.P("The audit bundle includes dated source levels, component scores and weights, "
                                  "quintiles, realized outcomes, forecasts, the trade ledger and source-file hashes. "
                                  "Join the files on date. Returns and volatility in the CSVs are decimals."),

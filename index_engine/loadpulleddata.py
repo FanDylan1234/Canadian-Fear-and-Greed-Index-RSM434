@@ -11,6 +11,16 @@ from index_engine.pull_data import parse
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def first_tsx_basis_break(total_return, price):
+    """Screen for a scale change in total-return levels relative to the same TSX price index."""
+    relative_level = total_return.div(price).dropna().sort_index()
+    relative_move = relative_level.pct_change(fill_method=None)
+    # Only compare nearby common closes. A genuine crash moves both indices.
+    nearby = relative_level.index.to_series().diff().dt.days.le(10)
+    breaks = relative_move[nearby & (relative_move.abs() > 0.05)]
+    return None if breaks.empty else breaks.index[0]
+
+
 def load_config(path=None):
     config = json.loads(
         Path(path or ROOT / "support" / "config" / "index-config.json").read_text(encoding="utf-8-sig")
@@ -114,6 +124,8 @@ def read_inputs(raw_dir, config):
                 ),
             )
         )
+        if name == "tsx_total_return" and meta.get("return_index_base_start"):
+            coverage[-1]["return_index_base_start"] = meta["return_index_base_start"]
         if name == "fred_vix" and path.exists():
             provenance_path = raw_dir / "us-vix-source.json"
             if provenance_path.exists():
@@ -133,4 +145,11 @@ def read_inputs(raw_dir, config):
         raise ValueError(
             "No TSX price history. Run python runtostartindex.py --update --refresh on the Bloomberg workstation."
         )
+    # Older caches may contain short Bloomberg return-index pulls pasted onto a different base.
+    broken = first_tsx_basis_break(frame.tsx_total_return, frame.tsx_price)
+    if broken is not None:
+        frame.loc[broken:, "tsx_total_return"] = np.nan
+        row = next(r for r in coverage if r["dataset"] == "tsx_total_return")
+        row["status"] = f"Excluded from {broken:%Y-%m-%d} after a total-return scale break"
+        row["basis_break_date"] = str(broken.date())
     return frame, coverage

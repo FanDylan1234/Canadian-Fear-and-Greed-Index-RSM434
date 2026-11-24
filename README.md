@@ -38,7 +38,7 @@ It is a separate vendor dependency. The dashboard can open without it, but Bloom
 Each checkout creates its own data-access-results/raw folder at startup and reuses it on later runs. Online startup requests source histories automatically. Offline mode uses previously downloaded files. A first run needs successful source requests to populate the cache.
 
 Daily observations end at yesterday in Toronto. Quotes update separately. Failed refreshes retain cached inputs.
-Some source definitions still need review. Consult the Data & weights page before interpreting the index.
+Data & weights shows source coverage and exclusions. The audit manifest preserves the instrument, field and verification metadata for each source.
 
 ## What each part does
 | File or folder | Purpose |

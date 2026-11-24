@@ -4,7 +4,7 @@ import datetime as dt
 import json
 import math
 from pathlib import Path
-from .loadpulleddata import ROOT, load_config
+from .loadpulleddata import ROOT, first_tsx_basis_break, load_config
 from .pipeline import atomic_text
 from index_engine.pull_bloomberg import BloombergClient
 from index_engine.pull_data import parse, SOURCES
@@ -72,7 +72,10 @@ def refresh_daily(raw_dir=None, client_factory=BloombergClient):
                 request_start = start
                 same_mapping = prior.get("security") == security and prior.get("field") == field
                 cached_start = prior.get("history_start") or prior.get("coverage", {}).get("expected_start")
-                if same_mapping and cached_start == start and old_file.exists():
+                # RT116 is rebased to the first date of each Bloomberg historical request.
+                # Replace it with one fixed-start path. A moving overlap can splice two bases.
+                fixed_base = name == "tsx_total_return" and field == "TOT_RETURN_INDEX_GROSS_DVDS"
+                if not fixed_base and same_mapping and cached_start == start and old_file.exists():
                     old_frame = pd.read_csv(old_file)
                     latest = dt.date.fromisoformat(old_frame.date.max())
                     request_start = max(start, (latest - dt.timedelta(days=7)).isoformat())
@@ -120,6 +123,16 @@ def refresh_daily(raw_dir=None, client_factory=BloombergClient):
                         raise ValueError(
                             "Refresh shortened historical coverage; retained cache"
                         )
+                if fixed_base:
+                    if old_frame is not None:
+                        existing_dates = old_frame.loc[old_frame.value.notna(), "date"]
+                        if not existing_dates.isin(frame.loc[frame.value.notna(), "date"]).all():
+                            raise ValueError("Fixed-start TSX return history lost cached observations")
+                    price = pd.read_csv(raw_dir / "tsx_price.csv", parse_dates=["date"]).set_index("date").value
+                    levels = frame.set_index(pd.to_datetime(frame.date)).value
+                    broken = first_tsx_basis_break(levels, price)
+                    if broken is not None:
+                        raise ValueError(f"TSX return history changes scale on {broken:%Y-%m-%d}")
                 metadata = prior.get("metadata") if same_mapping else None
                 metadata = metadata or client.metadata(security, field)
                 if name in ("tsx_advancing", "tsx_declining"):
@@ -144,6 +157,8 @@ def refresh_daily(raw_dir=None, client_factory=BloombergClient):
                     history_start=start,
                     refreshed_at=dt.datetime.now(dt.timezone.utc).isoformat(),
                 )
+                if fixed_base:
+                    row["return_index_base_start"] = request_start
                 row["definition_verified"] = bool(
                     spec.get("verified", False)
                     if explicit

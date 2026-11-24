@@ -100,10 +100,12 @@ def forecast_tables(audit, calibration):
                 audit[col] = audit[f"{signal}_quintile"].map(mapping).astype(float).where(hold)
                 forecasts[signal] = audit[col]
             paired = hold & actual.notna() & forecasts["index"].notna() & forecasts["vix_score"].notna()
-            def rmse(signal):
-                return np.sqrt((forecasts[signal][paired] - actual[paired]).pow(2).mean())
-            idx, vix = rmse("index"), rmse("vix_score")
+            index_error = (forecasts["index"][paired] - actual[paired]).abs()
+            vix_error = (forecasts["vix_score"][paired] - actual[paired]).abs()
+            idx = np.sqrt(index_error.pow(2).mean())
+            vix = np.sqrt(vix_error.pow(2).mean())
             comparisons.append(dict(months=months, target=target, n=int(paired.sum()),
+                                    index_closer_days=int((index_error < vix_error).sum()),
                                     index_rmse=idx, vix_rmse=vix, advantage=vix-idx))
     return pd.DataFrame(predictions), pd.DataFrame(comparisons)
 

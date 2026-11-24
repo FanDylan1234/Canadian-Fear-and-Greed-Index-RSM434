@@ -14,7 +14,7 @@ Run `python runtostartindex.py --update` with the project's cached inputs. Open 
 | observations.csv | One row per TSX close. Includes training/holdout flag, index, seven scores and weights, options source date, volatility source, VIX level and score, return benchmarks, quintiles, actual outcomes, end dates and holdout forecasts. |
 | predictions.csv | Holdout sample counts, mean TSX total return and mean annualized volatility by index quintile and horizon. |
 | episodes.csv | Date windows, scored and extreme-fear counts, first breach, minimum and first date at the minimum. |
-| vix-comparison.csv | Paired counts and forecast RMSE for each target and horizon. Advantage equals VIX RMSE minus Canadian-index RMSE. |
+| vix-comparison.csv | Paired counts and forecast RMSE for each target and horizon. Advantage equals VIX RMSE minus Canadian-index RMSE. The index_closer_days column counts individual dates where the Canadian forecast had a smaller absolute error. |
 | backtest-ledger.csv | One row per joint close, with signal date and score, holdings during the preceding interval and after execution, switches, asset returns, costs and wealth paths. |
 | backtest-performance.csv | Ending wealth, cumulative and annualized return, and maximum drawdown for the rule before/after costs and both passive benchmarks. |
 
@@ -42,6 +42,8 @@ For a comparison row, keep the dates with an observed outcome and both forecasts
 For an episode, select March 1–31, 2020 or January 1–December 31, 2022 in observations.csv. Count scores strictly below 25 and divide by the count of valid scores. Read the first qualifying date and the first occurrence of the minimum directly from those rows.
 
 ## Trading convention
+
+Bloomberg's TOT_RETURN_INDEX_GROSS_DVDS field uses a base tied to the requested start date. Refreshes request the complete TSX total-return path from the configured history start and replace it as one series. For legacy caches, the loader checks the ratio of total-return to price levels between common closes at most ten calendar days apart. A change above 5% in absolute value flags a scale break. From that date the loader withholds total-return levels until a consistent history is available. The audit manifest records the break or the fixed request start when available.
 
 Start with CAD 100 already invested in equities at the first joint TSX and Canada Aggregate total-return close of 2020 or later. Scores below 25 target equities. Scores above 75 target bonds. All other readings, including missing scores, keep the last instruction. Only a strictly earlier close can determine a trade. If an asset level is missing, the latest extreme signal before the next joint close governs execution. The prior holding earns the full return between the two joint closes. A switch costs 10 basis points of the marked portfolio across both legs (assumed 5 each). The strategy ends marked to market.
 

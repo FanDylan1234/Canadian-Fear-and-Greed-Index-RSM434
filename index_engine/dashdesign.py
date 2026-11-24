@@ -223,7 +223,7 @@ def coverage_view(result, manifest, selected_date):
     return [
         html.H2("Source coverage"),
         html.P(
-            "History available for each source. Definitions awaiting review are marked below. Available means data exist; definition review means the benchmark or field still needs confirmation. Usable flagged series currently contribute to the index.",
+            "Coverage shows the first and latest observations in each source file. Status identifies missing or excluded data.",
             className="muted",
         ),
         table(
@@ -238,7 +238,7 @@ def coverage_view(result, manifest, selected_date):
                     (r["security"] or "") + " / " + (r["field"] or ""),
                     r["first"] or "\u2014",
                     r["last"] or "\u2014",
-                    r["status"] + (" \xb7 definition review" if r["review"] else ""),
+                    r["status"],
                 ]
                 for r in manifest["coverage"]
             ],

@@ -80,6 +80,8 @@ class HoldoutTests(unittest.TestCase):
                     f"vix_score_forecast_{row.target}_{row.months}m"]
             matched = r.audit.loc[r.audit.period == "holdout", cols].dropna().to_numpy()
             self.assertEqual(len(matched), row.n)
+            absolute_errors = abs(matched[:, 1:] - matched[:, :1])
+            self.assertEqual((absolute_errors[:, 0] < absolute_errors[:, 1]).sum(), row.index_closer_days)
             for i, rmse in enumerate([row.index_rmse, row.vix_rmse], 1):
                 self.assertAlmostEqual(np.linalg.norm(matched[:, 0] - matched[:, i]) / np.sqrt(row.n), rmse)
         self.assertTrue((r.audit.loc[:CUTOFF, "end_6m"].dropna() <= CUTOFF).all())
