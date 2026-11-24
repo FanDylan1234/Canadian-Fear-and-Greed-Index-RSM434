@@ -6,12 +6,15 @@ import plotly.graph_objects as go
 from .buildindicatorsfromdata import regime
 
 BANDS = [
-    (0, 25, "Extreme fear", "#dd7965"),
-    (25, 45, "Fear", "#ecc898"),
-    (45, 55, "Neutral", "#dedede"),
-    (55, 75, "Greed", "#acd3be"),
-    (75, 100, "Extreme greed", "#5cae90"),
+    (0, 25, "Extreme fear", "#f07e83"),
+    (25, 45, "Fear", "#eab187"),
+    (45, 55, "Neutral", "#d6ccc5"),
+    (55, 75, "Greed", "#a5b8d0"),
+    (75, 100, "Extreme greed", "#7990b5"),
 ]
+CHART_FONT = "Inter, Segoe UI, Arial, sans-serif"
+DATA_LINE = "#000000"
+DARK_PANEL = "#661c2d"
 
 
 def color(value):
@@ -24,17 +27,18 @@ def style(fig, height=360):
     fig.update_layout(
         template="plotly_white",
         height=height,
-        font=dict(family="Arial, sans-serif", color="#202124", size=12),
-        margin=dict(l=42, r=24, t=25, b=35),
-        paper_bgcolor="white",
-        plot_bgcolor="white",
+        font=dict(family=CHART_FONT, color="#594c50", size=12),
+        margin=dict(l=54, r=20, t=26, b=40),
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
         hovermode="x unified",
         legend=dict(orientation="h", y=1.14, x=0),
         uirevision="stable",
+        hoverlabel=dict(bgcolor="#581c2c", font=dict(family=CHART_FONT, color="white")),
         modebar_remove=["lasso2d", "select2d"],
     )
     fig.update_xaxes(showgrid=False, zeroline=False)
-    fig.update_yaxes(gridcolor="#eeeeee", zeroline=False)
+    fig.update_yaxes(gridcolor="#ebe3e1", zeroline=False, automargin=True)
     return fig
 
 
@@ -43,8 +47,8 @@ def gauge(value):
     fig = go.Figure()
     for lo, hi, label, shade in BANDS:
         angles = np.linspace(np.pi * (1 - lo / 100), np.pi * (1 - hi / 100), 80)
-        x = np.r_[np.cos(angles), 0.79 * np.cos(angles[::-1])]
-        y = np.r_[np.sin(angles), 0.79 * np.sin(angles[::-1])]
+        x = np.r_[np.cos(angles), 0.80 * np.cos(angles[::-1])]
+        y = np.r_[np.sin(angles), 0.80 * np.sin(angles[::-1])]
         fig.add_trace(
             go.Scatter(
                 x=x,
@@ -52,18 +56,12 @@ def gauge(value):
                 mode="lines",
                 fill="toself",
                 fillcolor=shade,
-                line=dict(color="white", width=2),
-                hoverinfo="skip",
+                line=dict(color=DARK_PANEL, width=2),
+                name=label,
+                hoveron="fills",
+                hovertemplate=f"{label}<extra></extra>",
                 showlegend=False,
             )
-        )
-        mid = np.pi * (1 - (lo + hi) / 200)
-        fig.add_annotation(
-            x=1.19 * np.cos(mid),
-            y=1.19 * np.sin(mid),
-            text=label.replace("Extreme ", "Extreme<br>"),
-            showarrow=False,
-            font=dict(size=12, color="#3b4147"),
         )
     for tick in (0, 25, 50, 75, 100):
         angle = np.pi * (1 - tick / 100)
@@ -72,7 +70,7 @@ def gauge(value):
             y=0.68 * np.sin(angle),
             text=str(tick),
             showarrow=False,
-            font=dict(size=11, color="#626a73"),
+            font=dict(size=11, color="#efd6d5"),
         )
     if pd.notna(value):
         angle = np.pi * (1 - np.clip(value, 0, 100) / 100)
@@ -84,7 +82,7 @@ def gauge(value):
                 y=[side[1], tip[1], -side[1]],
                 mode="lines",
                 fill="toself",
-                fillcolor="#16191d",
+                fillcolor="#fff6ed",
                 line=dict(width=0),
                 hoverinfo="skip",
                 showlegend=False,
@@ -95,34 +93,25 @@ def gauge(value):
                 x=[0],
                 y=[0],
                 mode="markers",
-                marker=dict(size=11, color="#16191d"),
+                marker=dict(size=10, color="#fff6ed"),
                 hoverinfo="skip",
                 showlegend=False,
             )
         )
-    fig.add_annotation(
-        x=0,
-        y=-0.21,
-        text=f"<b>{value:.0f}</b>" if pd.notna(value) else "\u2014",
-        showarrow=False,
-        font=dict(size=50, color="#16191d"),
-    )
-    fig.add_annotation(
-        x=0,
-        y=-0.46,
-        text=regime(value),
-        showarrow=False,
-        font=dict(size=15, color="#4b535b"),
-    )
+    if pd.isna(value):
+        fig.add_annotation(x=0, y=0, text="—", showarrow=False)
+    for x, label in [(-0.89, "Fear"), (0.89, "Greed")]:
+        fig.add_annotation(x=x, y=-0.18, text=label, showarrow=False,
+                           font=dict(size=12, color="#f4ded9"))
     fig.update_layout(
-        height=340,
-        margin=dict(l=12, r=12, t=15, b=0),
-        paper_bgcolor="white",
-        plot_bgcolor="white",
-        font=dict(family="Arial, sans-serif"),
-        xaxis=dict(range=[-1.4, 1.4], visible=False, fixedrange=True),
+        height=168,
+        margin=dict(l=4, r=4, t=4, b=2),
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        font=dict(family=CHART_FONT, color="white"),
+        xaxis=dict(range=[-1.14, 1.14], visible=False, fixedrange=True),
         yaxis=dict(
-            range=[-0.57, 1.4],
+            range=[-0.31, 1.06],
             visible=False,
             scaleanchor="x",
             scaleratio=1,
@@ -130,6 +119,21 @@ def gauge(value):
         ),
         hovermode=False,
     )
+    return fig
+
+
+def recent_trend(history):
+    end = history.index[-1]
+    dates = history.loc[end - pd.DateOffset(months=3):end, "index"]
+    fig = go.Figure(go.Scatter(x=dates.index, y=dates, mode="lines",
+                               line=dict(color=DATA_LINE, width=2), fill="tozeroy",
+                               fillcolor="rgba(255,181,173,0.14)", connectgaps=False,
+                               hovertemplate="%{x|%b %d, %Y} · %{y:.1f} / 100<extra></extra>"))
+    fig.update_layout(height=46, margin=dict(l=2, r=4, t=4, b=2),
+                      xaxis=dict(visible=False, fixedrange=True),
+                      yaxis=dict(visible=False, fixedrange=True, range=[0, 100]),
+                      paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                      showlegend=False, hovermode="x")
     return fig
 
 
@@ -147,7 +151,7 @@ def history_chart(history, start=None, end=None):
             name="Fear & Greed",
             mode="lines",
             connectgaps=False,
-            line=dict(color="#202124", width=2),
+            line=dict(color=DATA_LINE, width=2.3),
             customdata=frame[["active_components", "volatility_source"]],
             hovertemplate="%{y:.1f} / 100<br>%{customdata[0]} components<br>%{customdata[1]}<extra></extra>",
         )
@@ -168,7 +172,7 @@ def signal_chart(result, component, days=252):
                 x=s.index[-days:],
                 y=s.iloc[-days:],
                 name="TSX Composite",
-                line=dict(color="#202124", width=2),
+                line=dict(color=DATA_LINE, width=2),
             )
         )
         avg = s.shift(1).rolling(125).mean()
@@ -177,7 +181,7 @@ def signal_chart(result, component, days=252):
                 x=avg.index[-days:],
                 y=avg.iloc[-days:],
                 name="Prior 125-session average",
-                line=dict(color="#d2a24b", width=2),
+                line=dict(color=DATA_LINE, width=1.6, dash="dash"),
             )
         )
     else:
@@ -187,7 +191,7 @@ def signal_chart(result, component, days=252):
                 x=s.index,
                 y=s,
                 name="Raw indicator",
-                line=dict(color="#283b43", width=2),
+                line=dict(color=DATA_LINE, width=2),
                 connectgaps=False,
             )
         )
@@ -204,13 +208,13 @@ def weights_chart(weights):
 
     fig = go.Figure()
     colors = [
-        "#293d46",
-        "#547e88",
-        "#84a8ad",
-        "#d9ac63",
-        "#b87565",
-        "#729c79",
-        "#b6bb83",
+        "#76283d",
+        "#c56068",
+        "#647998",
+        "#d0a26d",
+        "#a06986",
+        "#586173",
+        "#db9985",
     ]
     for (key, (label, _, _)), shade in zip(COMPONENTS.items(), colors):
         fig.add_trace(

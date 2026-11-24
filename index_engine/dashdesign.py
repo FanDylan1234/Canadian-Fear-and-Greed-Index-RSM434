@@ -11,7 +11,7 @@ from dash import Dash, Input, Output, State, ctx, dcc, html, no_update
 from flask import abort, send_file
 from index_engine.loadpulleddata import ROOT
 from index_engine.buildindicatorsfromdata import COMPONENTS, regime
-from index_engine.chartsdesign import gauge, history_chart, signal_chart, weights_chart, color
+from index_engine.chartsdesign import gauge, history_chart, recent_trend, signal_chart, weights_chart, color
 from index_engine.service import DashboardService
 from index_engine.dashboard_components import table
 from index_engine.research_views import TABS as RESEARCH_TABS, research_page
@@ -21,7 +21,7 @@ GRAPH_CONFIG = {"displayModeBar": False, "responsive": True}
 
 def score_badge(value):
     return html.Span(
-        regime(value), className="badge", style={"backgroundColor": color(value)}
+        regime(value), className="badge", style={"--tone": color(value)}
     )
 
 
@@ -37,32 +37,30 @@ def comparison(history):
         past = history.loc[:target]
         if len(past) and (target - past.index[-1]).days <= 7:
             value = past["index"].iloc[-1]
-            dated = str(past.index[-1].date())
+            dated = f"{past.index[-1]:%b %d, %Y}"
         else:
             value, dated = float("nan"), "No observation"
         rows.append(
             html.Div(
                 [
-                    html.Div(
-                        [html.Strong(label), html.Small(dated), html.Div(regime(value))]
-                    ),
+                    html.Div([html.Strong(label), html.Small(dated)]),
+                    score_badge(value),
                     html.Span(
                         f"{value:.0f}" if pd.notna(value) else "\u2014",
                         className="round-score",
-                        style={"backgroundColor": color(value)},
                     ),
                 ],
                 className="comparison-row",
             )
         )
-    return html.Div(rows, className="comparisons")
+    return html.Section([html.H2("Previous readings"), *rows], className="comparisons")
 
 
 def overview(result):
     history = result.history
     latest = history.iloc[-1]
     cards = []
-    for number, (key, (title, subtitle, rationale)) in enumerate(COMPONENTS.items(), 1):
+    for key, (title, subtitle, rationale) in COMPONENTS.items():
         value = result.scores[key].iloc[-1]
         weight = result.weights[key].iloc[-1]
         score_date = result.history.index[-1]
@@ -79,43 +77,23 @@ def overview(result):
                 [
                     html.Div(
                         [
-                            html.Span(f"0{number}", className="indicator-number"),
                             html.Div([html.H3(title), html.P(subtitle)]),
                             score_badge(value),
                         ],
                         className="indicator-heading",
                     ),
-                    html.Div(
-                        [
-                            dcc.Graph(
-                                id=f"indicator-{key}", figure=signal_chart(result, key), config=GRAPH_CONFIG
-                            ),
-                            html.Div(
-                                [
-                                    html.Div(
-                                        [
-                                            html.Strong(
-                                                f"{value:.1f}"
-                                                if pd.notna(value)
-                                                else "\u2014"
-                                            ),
-                                            html.Span(" / 100"),
-                                            html.Small(f"As of {score_date:%b %d, %Y}"),
-                                        ],
-                                        className="component-score",
-                                    ),
-                                    *[html.P(paragraph) for paragraph in rationale.split("\n\n")],
-                                    html.P(
-                                        f"Current index weight: {weight:.2%}",
-                                        className="weight-label",
-                                    ),
-                                    html.P(note, className="weight-label", role="status"),
-                                ],
-                                className="indicator-explanation",
-                            ),
-                        ],
-                        className="indicator-body",
-                    ),
+                    html.Div([
+                        html.Div([html.Strong(f"{value:.1f}" if pd.notna(value) else "—"),
+                                  html.Span(" / 100")], className="component-score"),
+                        html.Small(f"Weight {weight:.2%}"),
+                    ], className="indicator-reading"),
+                    dcc.Graph(id=f"indicator-{key}", figure=signal_chart(result, key),
+                              config=GRAPH_CONFIG, style={"height": "188px"}, responsive=True),
+                    html.P(note, className="indicator-note", role="status") if note else None,
+                    html.Details([
+                        html.Summary(["How it works", html.Small(f"As of {score_date:%b %d, %Y}")]),
+                        *[html.P(paragraph) for paragraph in rationale.split("\n\n")],
+                    ], className="indicator-detail"),
                 ],
                 className="indicator",
             )
@@ -123,33 +101,38 @@ def overview(result):
     return [
         html.Div(
             [
-                html.Div(
-                    [
-                        dcc.Graph(id="overview-gauge", figure=gauge(latest["index"]), config=GRAPH_CONFIG),
-                        html.P(
-                            f"Daily observation \xb7 {history.index[-1]:%b %d, %Y}",
-                            className="chart-caption",
-                        ),
-                    ]
-                ),
+                html.Section([
+                    html.Div([html.H2("Current reading"),
+                              html.Time(f"{history.index[-1]:%b %d, %Y}",
+                                        dateTime=history.index[-1].date().isoformat())],
+                             className="reading-heading"),
+                    html.Div([
+                        html.Div([html.Div([html.Strong(f"{latest['index']:.0f}" if pd.notna(latest["index"]) else "—"),
+                                           html.Span(" / 100")], className="index-score"),
+                                  score_badge(latest["index"])], className="reading-value"),
+                        dcc.Graph(id="overview-gauge", figure=gauge(latest["index"]), config=GRAPH_CONFIG,
+                                  responsive=True, style={"height": "168px"}),
+                    ], className="reading-body"),
+                    html.Div([html.Span("Past 3 months"),
+                              dcc.Graph(id="overview-trend", figure=recent_trend(history),
+                                        config=GRAPH_CONFIG, responsive=True, style={"height": "46px"})],
+                             className="reading-trend"),
+                ], className="reading-panel"),
                 comparison(history),
             ],
             className="overview-grid",
         ),
         html.Div(
             [
-                html.H2("Market indicators"),
+                html.Div([html.H2("Market indicators"),
+                          html.P("Available indicators are equally weighted.", className="muted")]),
                 html.Span(
                     f"{int(latest.active_components)} of 7 available", className="pill"
                 ),
             ],
             className="section-heading",
         ),
-        html.P(
-            "Available indicators are equally weighted.",
-            className="muted",
-        ),
-        *cards,
+        html.Div(cards, className="indicator-grid"),
     ]
 
 
@@ -347,13 +330,15 @@ def create_app(offline=False, start_worker=False, service=None):
                                 html.Img(
                                     src="/assets/maple-leaf.svg",
                                     className="brand-mark",
-                                    alt="Canada",
+                                    alt="",
                                 ),
-                                html.Strong("CANADIAN MARKET SENTIMENT"),
+                                html.Strong("Canadian Market Sentiment"),
                             ],
                             href="/",
                             className="brand",
                         ),
+                        html.Button([html.Span("↻", **{"aria-hidden": "true"}), "Refresh data"],
+                                    id="refresh-button", n_clicks=0, className="refresh-button"),
                     ],
                     className="nav-inner",
                 )
@@ -364,33 +349,22 @@ def create_app(offline=False, start_worker=False, service=None):
                         [
                             html.Div(
                                 [
-                                    html.H1("Fear & Greed Index"),
+                                    html.H1(["Fear ", html.Em("&"), " Greed Index"]),
                                     html.P(
-                                        "Canadian market sentiment", className="lead"
+                                        "A daily, 0–100 measure of sentiment in Canadian equity markets.", className="lead"
                                     ),
                                 ]
-                            ),
-                            html.Button(
-                                "Refresh data",
-                                id="refresh-button",
-                                n_clicks=0,
-                                className="refresh-button",
                             ),
                         ],
                         className="hero-heading",
                     ),
                     html.Div(id="status-banner", role="status"),
-                    dcc.Tabs(
+                    html.Nav(dcc.RadioItems(
                         id="view",
                         value="overview",
-                        className="tabs",
-                        children=[
-                            dcc.Tab(
-                                label=label,
-                                value=value,
-                                className="tab",
-                                selected_className="tab-selected",
-                            )
+                        className="tabs", labelClassName="tab", labelStyle={"display": "flex"},
+                        options=[
+                            {"label": label, "value": value}
                             for label, value in [
                                 ("Overview", "overview"),
                                 ("Timeline", "timeline"),
@@ -399,7 +373,7 @@ def create_app(offline=False, start_worker=False, service=None):
                                 ("Methodology", "methodology"),
                             ]
                         ],
-                    ),
+                    ), **{"aria-label": "Dashboard views"}),
                     html.Div(
                         [
                             html.Div(

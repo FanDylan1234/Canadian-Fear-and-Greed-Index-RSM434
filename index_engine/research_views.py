@@ -4,7 +4,7 @@ import pandas as pd
 import plotly.graph_objects as go
 from dash import dcc, html
 
-from .chartsdesign import history_chart, style
+from .chartsdesign import DATA_LINE, history_chart, style
 from .dashboard_components import table
 from .holdout import HORIZONS, SWITCH_COST
 
@@ -44,7 +44,8 @@ def calibration_details(r):
                "Q1 is the most fearful fifth of the training sample. Holdout quintiles can differ in size."),
         table(["Signal", "Training scores", "20th percentile", "40th", "60th", "80th"],
               [[label, f"{models[key]['score_count']:,}", *[f"{cut:.4f}" for cut in models[key]["cuts"]]]
-               for key, label in (("index", "Canadian index"), ("vix_score", "US VIX score"))]),
+               for key, label in (("index", "Canadian index"), ("vix_score", "US VIX score"))],
+              numeric_columns=(1, 2, 3, 4, 5)),
         html.P("The research design was reconstructed retrospectively from cached history. "
                "Historical revisions and the actual release time of a daily input can affect a replay."),
         download("Download full-precision calibration", "calibration.json"),
@@ -55,7 +56,7 @@ def prediction(r):
     summary = r.prediction.set_index(["quintile", "months"])
     fig = go.Figure()
     labels = ["Q1 · Fear", "Q2", "Q3", "Q4", "Q5 · Greed"]
-    for (months, _), color in zip(HORIZONS.items(), ["#324d57", "#64938b", "#c49b53"]):
+    for (months, _), color in zip(HORIZONS.items(), ["#84243a", "#cb6b72", "#677a96"]):
         values = summary.xs(months, level="months").mean_return
         fig.add_bar(x=labels, y=values, name=f"{months} month" + ("s" if months > 1 else ""),
                     marker_color=color, hovertemplate="%{y:.2%}<extra>%{fullData.name}</extra>")
@@ -79,10 +80,10 @@ def prediction(r):
     narrative = None
     low, high = summary.loc[(1, 1)], summary.loc[(5, 1)]
     if low.n and high.n:
-        narrative = html.P(f"After the most fearful readings, the TSX averaged {pct(low.mean_return)} "
-                           f"over the next month, with {pct(low.mean_vol)} annualized volatility. "
-                           f"After the greediest readings, those figures were {pct(high.mean_return)} "
-                           f"and {pct(high.mean_vol)}.")
+        narrative = html.P(["After the most fearful readings, the TSX averaged ", html.Strong(pct(low.mean_return)),
+                            f" over the next month, with {pct(low.mean_vol)} annualized volatility. "
+                            "After the greediest readings, those figures were ", html.Strong(pct(high.mean_return)),
+                            f" and {pct(high.mean_vol)}."], className="research-finding")
     return [html.H2("What followed each index quintile?"), narrative, graph("prediction-returns", fig),
             results, html.P("One, three and six months correspond to 21, 63 and 126 observed TSX sessions. "
                             "Return includes reinvested dividends. Volatility is the sample standard deviation "
@@ -102,13 +103,13 @@ def episodes(r):
         if e.scored:
             fig = history_chart(window)
             fig.update_layout(height=280, showlegend=False)
-            fig.add_hline(y=25, line_dash="dot", line_color="#995348")
+            fig.add_hline(y=25, line_dash="dot", line_color="#8d3742")
             charts.append(html.Div([html.H3(e.episode), graph(f"episode-{i}", fig)]))
     return [html.H2("Did the index register extreme fear?"),
             html.P("A daily score below 25 qualifies as extreme fear. Each window includes every observed "
                    "TSX session in the named month or year. The dotted line marks the threshold."),
             table(["Episode", "Extreme fear?", "Fear days / scored days", "Unscored days", "First fear",
-                   "Lowest score", "First date at low"], rows),
+                   "Lowest score", "First date at low"], rows, numeric_columns=(2, 3, 5)),
             html.Div(charts, className="episode-charts"),
             download("Download episode results (CSV)", "episodes.csv")]
 
@@ -137,11 +138,12 @@ def vix_comparison(r):
                          f"{int(m.index_closer_days):,} of {int(m.n):,} dates. Across all those dates, "
                          f"its RMSE was {pct(m.index_rmse)} and US VIX’s was {pct(m.vix_rmse)}. "
                          f"The gap was {abs(m.advantage)*100:.3f} percentage points.")
-    return [html.H2("Does the Canadian index beat US VIX alone?"), html.P(finding),
+    return [html.H2("Does the Canadian index beat US VIX alone?"), html.P(finding, className="research-finding"),
             html.P("Each test compares errors across many dates for one outcome and horizon. "
                    "The six tests cover returns and volatility over one, three and six months. "
                    "A signal can win a test even when the other signal is closer on many individual days."),
-            table(["Horizon", "Forecast target", "Paired days", "Index RMSE", "VIX RMSE", "Index advantage"], rows),
+            table(["Horizon", "Forecast target", "Paired days", "Index RMSE", "VIX RMSE", "Index advantage"],
+                  rows, numeric_columns=(2, 3, 4, 5)),
             example,
             html.P("Each signal forecasts the historical mean outcome for its own quintile. Both sets of "
                    "means use the same training dates and only outcomes completed by December 31, 2019. "
@@ -165,21 +167,24 @@ def backtest(r):
             for x in perf.itertuples()]
     trades = ledger[ledger.switched]
     fig = go.Figure()
-    for col, name, color in [("net_wealth", "Rule after costs", "#177264"),
-                             ("equity_wealth", "TSX", "#2c475b"), ("bond_wealth", "Canada Aggregate", "#b08b4e")]:
+    for col, name, dash in [("net_wealth", "Rule after costs", "solid"),
+                            ("equity_wealth", "TSX", "dash"),
+                            ("bond_wealth", "Canada Aggregate", "dot")]:
         fig.add_scatter(x=ledger.index, y=ledger[col], name=name, mode="lines",
-                        line=dict(color=color, width=2), hovertemplate="CAD %{y:.2f}<extra>%{fullData.name}</extra>")
+                        line=dict(color=DATA_LINE, width=2, dash=dash), hovertemplate="CAD %{y:.2f}<extra>%{fullData.name}</extra>")
     style(fig, 340)
     fig.update_yaxes(title="Value of CAD 100")
     return [html.H2("Equities in extreme fear, bonds in extreme greed"),
             html.P("Start with CAD 100 in TSX equities. A score below 25 targets 100% equities. A score "
                    "above 75 targets 100% Canadian aggregate bonds. Keep the last target between extremes "
                    "or when a score is missing."),
-            html.P(f"From {day(ledger.index[0])} to {day(ledger.index[-1])}, the rule switched "
-                   f"{len(trades)} times. CAD 100 grew to CAD {ledger.net_wealth.iloc[-1]:,.2f} after costs. "
-                   f"Holding the TSX throughout ended at CAD {ledger.equity_wealth.iloc[-1]:,.2f}."),
+            html.P([f"From {day(ledger.index[0])} to {day(ledger.index[-1])}, the rule switched "
+                    f"{len(trades)} times. CAD 100 ended at ", html.Strong(f"CAD {ledger.net_wealth.iloc[-1]:,.2f}"),
+                    " after costs. Holding the TSX throughout ended at ",
+                    html.Strong(f"CAD {ledger.equity_wealth.iloc[-1]:,.2f}"), "."], className="research-finding"),
             graph("backtest-wealth", fig),
-            table(["Portfolio", "Ending CAD", "Total return", "Annualized return", "Max. drawdown"], rows),
+            table(["Portfolio", "Ending CAD", "Total return", "Annualized return", "Max. drawdown"],
+                  rows, numeric_columns=(1, 2, 3, 4)),
             html.H3("Execution and limits"),
             html.P(f"Each signal can execute at the next close with both asset levels. The prior holding earns "
                    f"the return up to that close. Each full switch costs {SWITCH_COST:.2%} of portfolio value "
