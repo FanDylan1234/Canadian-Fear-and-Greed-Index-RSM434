@@ -9,17 +9,21 @@ import os
 import pandas as pd
 from .loadpulleddata import ROOT, load_config, read_inputs
 from .buildindicatorsfromdata import build_index
+from .holdout import evaluate, training_fingerprint, CALIBRATION_FILE, SWITCH_COST
+from .research_export import audit_bundle
 
 
-def atomic_text(path, text):
+def atomic_write(path, data):
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    with tempfile.NamedTemporaryFile(
-        "w", encoding="utf-8", dir=path.parent, delete=False, suffix=".tmp"
-    ) as handle:
-        handle.write(text)
+    options = {"mode": "wb"} if isinstance(data, bytes) else {"mode": "w", "encoding": "utf-8"}
+    with tempfile.NamedTemporaryFile(dir=path.parent, delete=False, suffix=".tmp", **options) as handle:
+        handle.write(data)
         temp = handle.name
     os.replace(temp, path)
+
+
+atomic_text = atomic_write  # Used by the source refreshers for text files.
 
 
 def clean_json(value):
@@ -67,14 +71,24 @@ def build(raw_dir=None, output=None, config=None):
         config_sha256=hashlib.sha256(
             json.dumps(config, sort_keys=True).encode()
         ).hexdigest(),
-        raw_sha256={
-            p.name: hashlib.sha256(p.read_bytes()).hexdigest()
-            for p in raw_dir.glob("*.csv")
-        },
+        raw_sha256={row["dataset"] + ".csv": row["sha256"] for row in coverage if row["sha256"]},
         first_date=str(result.history.index[0].date()),
         last_date=str(result.history.index[-1].date()),
         first_score=str(result.history["index"].first_valid_index().date()),
         coverage=coverage,
     )
+    research = evaluate(result, inputs, config)
+    current_training_hash = training_fingerprint(research.audit)
+    manifest["holdout"] = {
+        "calibration_sha256": hashlib.sha256(CALIBRATION_FILE.read_bytes()).hexdigest(),
+        "frozen_training_sha256": research.calibration["train_sha256"],
+        "current_training_sha256": current_training_hash,
+        "training_matches_freeze": current_training_hash == research.calibration["train_sha256"],
+        "switch_cost_fraction": SWITCH_COST,
+        "source_files": {name: hashlib.sha256((ROOT / "index_engine" / name).read_bytes()).hexdigest()
+                         for name in ("buildindicatorsfromdata.py", "holdout.py", "loadpulleddata.py")},
+    }
+    result.research = research
+    atomic_write(output / "holdout-audit.zip", audit_bundle(research, manifest))
     atomic_text(output / "manifest.json", json.dumps(clean_json(manifest), indent=2))
     return result, manifest

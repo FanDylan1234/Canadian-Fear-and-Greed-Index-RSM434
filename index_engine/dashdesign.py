@@ -3,6 +3,9 @@
 import argparse
 import datetime as dt
 import json
+from io import BytesIO
+from pathlib import Path
+from zipfile import ZipFile
 import pandas as pd
 from dash import Dash, Input, Output, State, ctx, dcc, html, no_update
 from flask import abort, send_file
@@ -10,20 +13,10 @@ from index_engine.loadpulleddata import ROOT
 from index_engine.buildindicatorsfromdata import COMPONENTS, regime
 from index_engine.chartsdesign import gauge, history_chart, signal_chart, weights_chart, color
 from index_engine.service import DashboardService
+from index_engine.dashboard_components import table
+from index_engine.research_views import TABS as RESEARCH_TABS, research_page
 
 GRAPH_CONFIG = {"displayModeBar": False, "responsive": True}
-
-
-def table(headers, rows):
-    return html.Div(
-        html.Table(
-            [
-                html.Thead(html.Tr([html.Th(h) for h in headers])),
-                html.Tbody([html.Tr([html.Td(c) for c in row]) for row in rows]),
-            ]
-        ),
-        className="table-scroll",
-    )
 
 
 def score_badge(value):
@@ -300,7 +293,7 @@ def methodology(config):
             "Options history begins in 2011. VIXC and VIXI are scored separately, with US VIX used during gaps or warmup periods. US VIX downloads try FRED first, then Cboe daily closes if FRED fails; Data & weights identifies the distributor. The selected volatility source is recorded in each exported row. Repeated volatility quotes are excluded from the tenth identical observation onward."
         ),
         html.P(
-            "Historical data can be revised. Scores use earlier observations only, but the source files are not a point-in-time archive. This dashboard shows market sentiment; strategy performance and predictive testing are separate analyses."
+            "Historical data can be revised. The research tabs apply the baseline to a retrospective holdout beginning in 2020. The audit bundle identifies the input files used for each build."
         ),
     ]
 
@@ -401,6 +394,7 @@ def create_app(offline=False, start_worker=False, service=None):
                             for label, value in [
                                 ("Overview", "overview"),
                                 ("Timeline", "timeline"),
+                                *[(label, value) for value, label in RESEARCH_TABS.items()],
                                 ("Data & weights", "data"),
                                 ("Methodology", "methodology"),
                             ]
@@ -532,12 +526,15 @@ def create_app(offline=False, start_worker=False, service=None):
         if render_key == previous_key:
             quote_content = no_update
         if render_key != previous_key:
-            content = {
-                "overview": lambda: overview(result),
-                "timeline": lambda: timeline(result, start, end),
-                "data": lambda: coverage_view(result, manifest, selected_date),
-                "methodology": lambda: methodology(service.config),
-            }[view]()
+            if view in RESEARCH_TABS:
+                content = research_page(view, result.research, manifest)
+            else:
+                content = {
+                    "overview": lambda: overview(result),
+                    "timeline": lambda: timeline(result, start, end),
+                    "data": lambda: coverage_view(result, manifest, selected_date),
+                    "methodology": lambda: methodology(service.config),
+                }[view]()
             content = html.Div(content, key=view, **{"data-view": view})
         return content, banner, (no_update if render_key == previous_key else quote_content), controls, busy, render_key
 
@@ -550,6 +547,18 @@ def create_app(offline=False, start_worker=False, service=None):
 
     @app.server.get("/download/<name>")
     def download(name):
+        output = Path(getattr(service, "output", None) or ROOT / "index-results")
+        if name in {"holdout-audit.zip", "observations.csv", "calibration.json",
+                    "episodes.csv", "vix-comparison.csv", "backtest-ledger.csv"}:
+            bundle = output / "holdout-audit.zip"
+            if not bundle.is_file():
+                abort(404)
+            if name == "holdout-audit.zip":
+                data = bundle.read_bytes()
+            else:
+                with ZipFile(bundle) as archive:
+                    data = archive.read(name)
+            return send_file(BytesIO(data), as_attachment=True, download_name=name)
         if name not in {
             "history.csv",
             "weights.csv",
@@ -558,7 +567,7 @@ def create_app(offline=False, start_worker=False, service=None):
             "weight-changes.csv",
         }:
             abort(404)
-        path = ROOT / "index-results" / name
+        path = output / name
         if not path.exists():
             abort(404)
         return send_file(path, as_attachment=True, download_name="canadian-fg-" + name)

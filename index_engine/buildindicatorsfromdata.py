@@ -1,8 +1,12 @@
 """Calculate the seven sentiment signals and their combined daily score."""
 
 from dataclasses import dataclass
+from typing import TYPE_CHECKING, Optional
 import numpy as np
 import pandas as pd
+
+if TYPE_CHECKING:
+    from .holdout import Research
 
 COMPONENTS = {
     "momentum": (
@@ -96,6 +100,7 @@ class IndexResult:
     scores: pd.DataFrame
     weights: pd.DataFrame
     inputs: pd.DataFrame
+    research: Optional["Research"] = None
 
 
 def build_index(inputs, config):

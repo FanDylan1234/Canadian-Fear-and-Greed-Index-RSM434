@@ -37,11 +37,14 @@ def read_inputs(raw_dir, config):
         path = raw_dir / (name + ".csv")
         meta = metadata.get(name, {})
         status = "Available"
+        digest = None
         if not path.exists():
             s = pd.Series(index=pd.DatetimeIndex([]), dtype=float)
             status = "Missing file"
         else:
-            text = path.read_text(encoding="utf-8-sig").rstrip("\x00 \t\r\n")
+            source_bytes = path.read_bytes()
+            digest = hashlib.sha256(source_bytes).hexdigest()
+            text = source_bytes.decode("utf-8-sig").rstrip("\x00 \t\r\n")
             if name in ("fred_vix", "mx_equity_put_call"):
                 frame = pd.DataFrame(parse(name, text), columns=["date", "value"])
             else:
@@ -89,6 +92,7 @@ def read_inputs(raw_dir, config):
         coverage.append(
             dict(
                 dataset=name,
+                sha256=digest,
                 first=str(valid.index.min().date()) if len(valid) else None,
                 last=str(valid.index.max().date()) if len(valid) else None,
                 observations=len(valid),
@@ -114,10 +118,11 @@ def read_inputs(raw_dir, config):
             provenance_path = raw_dir / "us-vix-source.json"
             if provenance_path.exists():
                 provenance = json.loads(provenance_path.read_text(encoding="utf-8"))
-                normalized = path.read_text(encoding="utf-8-sig")
+                normalized = source_bytes.decode("utf-8-sig").replace("\r\n", "\n").replace("\r", "\n")
                 if hashlib.sha256(normalized.encode()).hexdigest() == provenance.get("sha256"):
                     coverage[-1].update(security=provenance["provider"] + " US VIX",
-                                        field=provenance["field"])
+                                        field=provenance["field"], url=provenance.get("url"),
+                                        fetched_at=provenance.get("fetched_at"))
         series[name] = s
     frame = pd.DataFrame(series)
     frame.index = pd.DatetimeIndex(

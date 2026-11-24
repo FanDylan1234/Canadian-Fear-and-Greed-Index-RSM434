@@ -1,0 +1,261 @@
+{
+  "design": "baseline-v1-2026-11-06",
+  "settings": {
+    "rank_window": 252,
+    "rank_min_history": 126,
+    "minimum_components": 5,
+    "breadth_enabled": true,
+    "display_start": "2010-01-01"
+  },
+  "components": [
+    "momentum",
+    "strength",
+    "breadth",
+    "options",
+    "volatility",
+    "credit",
+    "safe_haven"
+  ],
+  "training_first": "2010-01-04",
+  "train_end": "2019-12-31",
+  "train_sha256": "43f0625b8f75001c34f3ecaaf0bc1afe88b97221d1632bacb27dc571f41f11b0",
+  "sessions_per_horizon": {
+    "1": 21,
+    "3": 63,
+    "6": 126
+  },
+  "models": {
+    "index": {
+      "cuts": [
+        28.783363752004867,
+        46.327834338770764,
+        60.29481668620257,
+        72.84769524284887
+      ],
+      "score_count": 2500,
+      "forecasts": [
+        {
+          "months": 1,
+          "quintile": 1,
+          "n": 493,
+          "mean_return": 0.007262996534591903,
+          "mean_vol": 0.1518963751809747
+        },
+        {
+          "months": 1,
+          "quintile": 2,
+          "n": 494,
+          "mean_return": 0.00032277826706510795,
+          "mean_vol": 0.11756003643508987
+        },
+        {
+          "months": 1,
+          "quintile": 3,
+          "n": 490,
+          "mean_return": 0.009101903838631695,
+          "mean_vol": 0.09966954746483202
+        },
+        {
+          "months": 1,
+          "quintile": 4,
+          "n": 475,
+          "mean_return": 0.008701080814587222,
+          "mean_vol": 0.09019293004666772
+        },
+        {
+          "months": 1,
+          "quintile": 5,
+          "n": 490,
+          "mean_return": 0.006033537672703001,
+          "mean_vol": 0.08669077829729097
+        },
+        {
+          "months": 3,
+          "quintile": 1,
+          "n": 493,
+          "mean_return": 0.022966386894492208,
+          "mean_vol": 0.14648973518713193
+        },
+        {
+          "months": 3,
+          "quintile": 2,
+          "n": 487,
+          "mean_return": 0.005844075529020991,
+          "mean_vol": 0.12028200852049582
+        },
+        {
+          "months": 3,
+          "quintile": 3,
+          "n": 478,
+          "mean_return": 0.019119391056724937,
+          "mean_vol": 0.10265167357378904
+        },
+        {
+          "months": 3,
+          "quintile": 4,
+          "n": 466,
+          "mean_return": 0.021245063320420123,
+          "mean_vol": 0.09745821710152325
+        },
+        {
+          "months": 3,
+          "quintile": 5,
+          "n": 477,
+          "mean_return": 0.02181627877995038,
+          "mean_vol": 0.09264605012099857
+        },
+        {
+          "months": 6,
+          "quintile": 1,
+          "n": 493,
+          "mean_return": 0.0494038672860768,
+          "mean_vol": 0.13433978947283176
+        },
+        {
+          "months": 6,
+          "quintile": 2,
+          "n": 470,
+          "mean_return": 0.02763232003573237,
+          "mean_vol": 0.12129606137991483
+        },
+        {
+          "months": 6,
+          "quintile": 3,
+          "n": 469,
+          "mean_return": 0.03208707641752543,
+          "mean_vol": 0.11044365930019243
+        },
+        {
+          "months": 6,
+          "quintile": 4,
+          "n": 447,
+          "mean_return": 0.03499291791441781,
+          "mean_vol": 0.10401647498292654
+        },
+        {
+          "months": 6,
+          "quintile": 5,
+          "n": 460,
+          "mean_return": 0.03669552326489301,
+          "mean_vol": 0.09998705806364618
+        }
+      ]
+    },
+    "vix_score": {
+      "cuts": [
+        24.19354838709677,
+        47.81930238657226,
+        69.91935483870968,
+        89.11290322580645
+      ],
+      "score_count": 2464,
+      "forecasts": [
+        {
+          "months": 1,
+          "quintile": 1,
+          "n": 498,
+          "mean_return": 0.014724574371041573,
+          "mean_vol": 0.146044286839113
+        },
+        {
+          "months": 1,
+          "quintile": 2,
+          "n": 485,
+          "mean_return": 0.008227868639237497,
+          "mean_vol": 0.10685645914863004
+        },
+        {
+          "months": 1,
+          "quintile": 3,
+          "n": 485,
+          "mean_return": 0.004153281030920834,
+          "mean_vol": 0.10315445177462905
+        },
+        {
+          "months": 1,
+          "quintile": 4,
+          "n": 492,
+          "mean_return": 0.0037997656579509902,
+          "mean_vol": 0.09749565130958175
+        },
+        {
+          "months": 1,
+          "quintile": 5,
+          "n": 482,
+          "mean_return": 0.00017076587645129248,
+          "mean_vol": 0.09245760429624317
+        },
+        {
+          "months": 3,
+          "quintile": 1,
+          "n": 496,
+          "mean_return": 0.04122441397019183,
+          "mean_vol": 0.13259469314490763
+        },
+        {
+          "months": 3,
+          "quintile": 2,
+          "n": 479,
+          "mean_return": 0.019926514602418045,
+          "mean_vol": 0.10986417887278402
+        },
+        {
+          "months": 3,
+          "quintile": 3,
+          "n": 484,
+          "mean_return": 0.010506754184418278,
+          "mean_vol": 0.11025706106176335
+        },
+        {
+          "months": 3,
+          "quintile": 4,
+          "n": 477,
+          "mean_return": 0.01659985796632684,
+          "mean_vol": 0.10297259553328232
+        },
+        {
+          "months": 3,
+          "quintile": 5,
+          "n": 465,
+          "mean_return": 0.0013303566303543377,
+          "mean_vol": 0.10451122051360849
+        },
+        {
+          "months": 6,
+          "quintile": 1,
+          "n": 488,
+          "mean_return": 0.06945807956759882,
+          "mean_vol": 0.12210497272603889
+        },
+        {
+          "months": 6,
+          "quintile": 2,
+          "n": 461,
+          "mean_return": 0.035897018961983745,
+          "mean_vol": 0.11270025906383377
+        },
+        {
+          "months": 6,
+          "quintile": 3,
+          "n": 466,
+          "mean_return": 0.02738192784713486,
+          "mean_vol": 0.11773473951300326
+        },
+        {
+          "months": 6,
+          "quintile": 4,
+          "n": 461,
+          "mean_return": 0.02849689486480667,
+          "mean_vol": 0.10966024098307353
+        },
+        {
+          "months": 6,
+          "quintile": 5,
+          "n": 463,
+          "mean_return": 0.018515756713480772,
+          "mean_vol": 0.1092145712140625
+        }
+      ]
+    }
+  }
+}

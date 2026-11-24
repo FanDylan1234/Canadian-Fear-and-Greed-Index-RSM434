@@ -65,7 +65,7 @@ Seven signals measure momentum, new highs minus lows, advancing/declining breadt
 Each is ranked against up to 252 prior TSX sessions, with 126 finite observations required. Higher scores mean greater greed.
 Available components have equal weights. At least five are required to publish. Missing observations remain missing.
 Canadian volatility series are ranked separately, with a labelled US VIX fallback. Composite breadth excludes legacy Venture exports.
-History begins in 2010 where sufficient warmup exists. The timeline is a research index. Predictive evaluation and trading tests remain future work.
+History begins in 2010 where sufficient warmup exists. **Prediction**, **Episodes**, **US VIX comparison**, and **Backtest** cover the holdout from 2020 onward. The update command also writes **index-results/holdout-audit.zip**. Download it from any research tab for the dated inputs, forecasts, trading ledger, calibration, and checksums. The [holdout methods and audit guide](support/docs/holdout.md) explains how to reproduce a result.
 
 See [source requirements](support/docs/data-requirements.md) and [earlier development notes](support/docs/development-history.md) for detailed evidence, milestones, and AI-use disclosure.
 

@@ -62,3 +62,16 @@ footer{flex-direction:column}.timeline-controls,.weight-controls{flex-wrap:wrap}
 #page-content.timeline > [data-view]:not([data-view="timeline"]){display:none!important}
 #page-content.data > [data-view]:not([data-view="data"]){display:none!important}
 #page-content.methodology > [data-view]:not([data-view="methodology"]){display:none!important}
+#page-content.prediction > [data-view]:not([data-view="prediction"]),
+#page-content.episodes > [data-view]:not([data-view="episodes"]),
+#page-content.vix > [data-view]:not([data-view="vix"]),
+#page-content.backtest > [data-view]:not([data-view="backtest"]){display:none!important}
+.tabs .tab{padding:14px 16px!important}
+.research-period{font-size:12px;font-weight:600;color:#50666b;margin:20px 0 4px}
+.research-period + h2{margin-top:6px}
+.research-grid th,.research-grid td{font-variant-numeric:tabular-nums;text-align:right}
+.research-grid th:first-child,.research-grid td:first-child{text-align:left}
+.research-grid th[scope="colgroup"]{text-align:center;border-bottom:1px solid #ddd}
+.episode-charts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px}
+#page-content .quote-details{margin:18px 0 10px}
+@media(max-width:950px){.tabs .tab{padding:12px 7px!important}.episode-charts{grid-template-columns:1fr}}
