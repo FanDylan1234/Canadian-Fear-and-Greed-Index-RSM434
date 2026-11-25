@@ -31,8 +31,8 @@ COMPONENTS = {
     ),
     "volatility": (
         "Market volatility",
-        "Canadian implied volatility; disclosed US VIX fallback",
-        "Implied volatility reflects the size of future moves priced into options, not a forecast that prices must fall. Elevated readings often accompany uncertainty and expensive downside protection, so unusually high volatility lowers the greed score. Low readings indicate calmer pricing, although they can also reflect complacency.\n\nWe rank VIXC and VIXI separately because their definitions differ. US VIX is used only when Canadian scores are unavailable or warming up, and is identified in the history. It reflects US equity risk rather than a direct measure of Canadian sentiment.",
+        "Canadian implied volatility (VIXC, then VIXI)",
+        "Implied volatility reflects the size of future moves priced into options, not a forecast that prices must fall. Elevated readings often accompany uncertainty and expensive downside protection, so unusually high volatility lowers the greed score. Low readings indicate calmer pricing, although they can also reflect complacency.\n\nWe rank VIXC and VIXI separately because their definitions differ. When neither Canadian series can be scored, including the 2020–21 gap between them and VIXI's warmup, this indicator is left out and the remaining indicators share its weight equally. No US data substitute for it.",
     ),
     "credit": (
         "Credit demand",
@@ -150,9 +150,9 @@ def build_index(inputs, config):
     source = pd.Series("Unavailable", index=data.index)
     vol_score = pd.Series(np.nan, index=data.index)
     vol_level = pd.Series(np.nan, index=data.index)
-    # Increasing priority: US fallback, legacy Canadian, replacement Canadian.
+    # Canadian series only, in increasing priority. Without a Canadian score the
+    # component is excluded and aggregate() reweights the others equally.
     for name, label in [
-        ("fred_vix", "US VIX fallback"),
         ("canada_vixc_history", "VIXC"),
         ("canada_vixi_history", "VIXI"),
     ]:

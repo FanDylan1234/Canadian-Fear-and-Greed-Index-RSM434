@@ -273,7 +273,7 @@ def methodology(config):
         ),
         html.H3("Historical coverage"),
         html.P(
-            "Options history begins in 2011. VIXC and VIXI are scored separately, with US VIX used during gaps or warmup periods. US VIX downloads try FRED first, then Cboe daily closes if FRED fails; Data & weights identifies the distributor. The selected volatility source is recorded in each exported row. Repeated volatility quotes are excluded from the tenth identical observation onward."
+            "Options history begins in 2011. VIXC and VIXI are scored separately. When neither can be scored, during early warmup, the 2020–21 gap between them, and VIXI's warmup, volatility is left out and the other indicators share its weight. US VIX is never substituted into the index; it is downloaded only for the US VIX comparison tab, from FRED first, then Cboe daily closes if FRED fails. The selected volatility source is recorded in each exported row. Repeated volatility quotes are excluded from the tenth identical observation onward."
         ),
         html.P(
             "Historical data can be revised. The research tabs apply the baseline to a retrospective holdout beginning in 2020. The audit bundle identifies the input files used for each build."

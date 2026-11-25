@@ -59,13 +59,25 @@ class IndexTests(unittest.TestCase):
         self.assertTrue(pd.isna(result.scores.breadth.iloc[-1]))
         self.assertEqual(result.weights.breadth.iloc[-1], 0)
 
-    def test_volatility_fallback_and_no_future_launch_values(self):
+    def test_no_us_vix_fallback_and_no_future_launch_values(self):
         source = fixture()
         source["canada_vixi_history"] = 14 + np.sin(np.arange(len(source))/9)
         source.loc[source.index[-1], "canada_vixc_history"] = np.nan
         result = build_index(source, load_config())
-        self.assertEqual(result.history.volatility_source.iloc[-1], "US VIX fallback")
+        last = result.history.iloc[-1]
+        self.assertEqual(last.volatility_source, "Unavailable")
         self.assertNotIn("VIXI", result.history.volatility_source.unique())
+        self.assertTrue(pd.isna(result.scores.volatility.iloc[-1]))
+        self.assertEqual(result.weights.volatility.iloc[-1], 0)
+        self.assertEqual(last.active_components, 6)
+        self.assertAlmostEqual(result.weights.iloc[-1].sum(), 1)
+        self.assertAlmostEqual(last["index"], result.scores.iloc[-1].dropna().mean())
+        # US VIX remains a separate comparison score and never enters the index.
+        self.assertTrue(pd.notna(last.vix_score))
+        changed = source.copy()
+        changed["fred_vix"] = 99 - changed["fred_vix"]
+        pd.testing.assert_series_equal(build_index(changed, load_config()).history["index"],
+                                       result.history["index"])
 
     def test_stale_detection_is_causal_and_does_not_remove_earlier_quotes(self):
         result = mask_stale(pd.Series([12.]*12+[13.]))

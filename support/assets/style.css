@@ -169,7 +169,7 @@ th.numeric, td.numeric { text-align: right; white-space: nowrap; }
 .research-grid td:not(:first-child), .research-grid th[scope="col"] { text-align: right; }
 .research-grid th[rowspan] { text-align: left; }
 .research-grid th[scope="colgroup"] { text-align: center; border-bottom: 1px solid var(--line); }
-.research-grid td:nth-child(3n+2), .research-grid th[scope="colgroup"] { border-left: 1px solid var(--line); }
+.research-grid td:nth-child(3n+3), .research-grid th[scope="colgroup"] { border-left: 1px solid var(--line); }
 .quote-details { margin: 15px 0; padding: 12px 16px; border: 1px solid var(--line); background: #fcf8f6; border-radius: 9px; }
 .quote-details > summary { display: flex; align-items: center; justify-content: space-between; color: #742d3c; font-weight: 650; font-size: 14px; }
 .quote-details[open] > summary { margin-bottom: 10px; }

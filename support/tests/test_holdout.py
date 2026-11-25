@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 
 from index_engine.holdout import (
-    BASELINE, CALIBRATION_FILE, CUTOFF, HORIZONS, SWITCH_COST, episode_table,
+    ALLOCATION, BASELINE, BENCHMARK_EQUITY, CALIBRATION_FILE, CUTOFF, HORIZONS, SWITCH_COST, episode_table,
     evaluate, fit_calibration, forward_outcomes, quintiles, run_backtest,
 )
 from index_engine.buildindicatorsfromdata import build_index
@@ -44,18 +44,41 @@ class HoldoutTests(unittest.TestCase):
         self.assertEqual(q.iloc[:5].tolist(), [1, 1, 2, 4, 5])
         self.assertTrue(pd.isna(q.iloc[-1]))
 
-    def test_prior_signal_next_joint_close_old_holding_earns_interval(self):
+    def test_sentiment_mix_versus_60_40_trades_at_next_joint_close(self):
         dates = pd.bdate_range("2020-01-02", periods=8)
         h = pd.DataFrame({"index": [75, 80, 90, np.nan, 25, 20, np.nan, 50],
                           "tsx_total_return": [100, 110, 121, 133.1, 120, 110, 110, 121],
                           "bond_total_return": [100, 100, np.nan, 100, 105, 110, 120, 115]}, index=dates)
         ledger, perf = run_backtest(h)
-        self.assertEqual(ledger.index[ledger.switched].tolist(), [dates[3], dates[6]])
+        # 75 is Greed (60/40), 80 is Extreme greed (bonds), 25 is Fear (60/40), 20 is Extreme fear (equities).
+        self.assertEqual(ledger.index[ledger.switched].tolist(), [dates[3], dates[5], dates[6]])
+        self.assertEqual(ledger.equity_after_close.tolist(), [.6, .6, 0, 0, .6, 1, 1])
         self.assertEqual(ledger.loc[dates[3], "signal_date"], dates[2])
-        self.assertAlmostEqual(ledger.loc[dates[3], "net_wealth"], 133.1 * (1-SWITCH_COST))
-        self.assertAlmostEqual(ledger.net_wealth.iloc[-1], 133.1 * 1.2 * 1.1 * (1-SWITCH_COST)**2)
-        self.assertAlmostEqual(perf.iloc[2].end_wealth, 121)
+        self.assertEqual(ledger.loc[dates[3], "signal_regime"], "Extreme greed")
         self.assertTrue((ledger.loc[ledger.switched, "signal_date"] < ledger.index[ledger.switched]).all())
+
+        def replay(targets):
+            weight, wealth = BENCHMARK_EQUITY, 100.
+            levels = ledger[["tsx_total_return", "bond_total_return"]].to_numpy()
+            for (e0, b0), (e1, b1), target in zip(levels, levels[1:], targets[1:]):
+                re, rb = e1 / e0 - 1, b1 / b0 - 1
+                gross = weight * re + (1 - weight) * rb
+                drifted = weight * (1 + re) / (1 + gross)
+                wealth *= (1 + gross) * (1 - SWITCH_COST * abs(target - drifted))
+                weight = target
+            return wealth
+
+        perf = perf.set_index("portfolio")
+        self.assertAlmostEqual(ledger.strategy_wealth.iloc[-1], replay(ledger.equity_after_close.tolist()))
+        self.assertAlmostEqual(perf.loc["Sentiment strategy"].end_wealth, ledger.strategy_wealth.iloc[-1])
+        self.assertAlmostEqual(perf.loc["60/40 strategy"].end_wealth, replay([BENCHMARK_EQUITY] * len(ledger)))
+        self.assertAlmostEqual(perf.loc["TSX buy and hold"].end_wealth, 121)
+        daily = ledger.equity_return.iloc[1:]
+        vol = daily.std(ddof=1) * np.sqrt(252)
+        self.assertAlmostEqual(perf.loc["TSX buy and hold"].volatility, vol)
+        self.assertAlmostEqual(perf.loc["TSX buy and hold"].sharpe, daily.mean() * 252 / vol)
+        self.assertEqual(ALLOCATION["Extreme fear"], 1)
+        self.assertEqual(ALLOCATION["Extreme greed"], 0)
 
     def test_no_breach_and_no_observations_are_distinct(self):
         h = pd.DataFrame({"index": [25., np.nan]}, index=pd.to_datetime(["2020-03-02", "2020-03-03"]))

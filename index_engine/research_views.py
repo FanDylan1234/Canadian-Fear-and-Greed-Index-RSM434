@@ -6,8 +6,12 @@ from dash import dcc, html
 
 from .chartsdesign import DATA_LINE, history_chart, style
 from .dashboard_components import table
-from .holdout import HORIZONS, SWITCH_COST
+from .holdout import ALLOCATION, BENCHMARK_EQUITY, HORIZONS, SWITCH_COST
 
+
+# Fifths of the 2010-2019 index scores, from most fearful to greediest.
+GROUPS = ["Extreme fear", "Fear", "Neutral", "Greed", "Extreme greed"]
+SERIES_COLORS = {"strategy": DATA_LINE, "benchmark": "#b3123a", "equity": "#4f6f9c"}
 
 TABS = {"prediction": "Prediction", "episodes": "Episodes",
         "vix": "US VIX comparison", "backtest": "Backtest"}
@@ -41,7 +45,8 @@ def calibration_details(r):
                "and requires at least five. The same rules apply throughout the holdout."),
         html.P(f"Boundaries use daily scores from {r.calibration['training_first']} through "
                "2019-12-31. A score on a boundary stays in the lower quintile. "
-               "Q1 is the most fearful fifth of the training sample. Holdout quintiles can differ in size."),
+               "The Extreme fear group is the most fearful fifth of the training sample and Extreme greed the "
+               "greediest. Holdout groups can differ in size."),
         table(["Signal", "Training scores", "20th percentile", "40th", "60th", "80th"],
               [[label, f"{models[key]['score_count']:,}", *[f"{cut:.4f}" for cut in models[key]["cuts"]]]
                for key, label in (("index", "Canadian index"), ("vix_score", "US VIX score"))],
@@ -55,7 +60,10 @@ def calibration_details(r):
 def prediction(r):
     summary = r.prediction.set_index(["quintile", "months"])
     fig = go.Figure()
-    labels = ["Q1 · Fear", "Q2", "Q3", "Q4", "Q5 · Greed"]
+    labels = GROUPS
+    cuts = r.calibration["models"]["index"]["cuts"]
+    bounds = [0, *cuts, 100]
+    ranges = [f"{lo:.1f}–{hi:.1f}" for lo, hi in zip(bounds, bounds[1:])]
     for (months, _), color in zip(HORIZONS.items(), ["#84243a", "#cb6b72", "#677a96"]):
         values = summary.xs(months, level="months").mean_return
         fig.add_bar(x=labels, y=values, name=f"{months} month" + ("s" if months > 1 else ""),
@@ -68,10 +76,10 @@ def prediction(r):
         for months in HORIZONS:
             s = summary.loc[(q, months)]
             cells.extend([pct(s.mean_return), pct(s.mean_vol), f"{int(s.n):,}"])
-        rows.append([label, *cells])
+        rows.append([label, ranges[q - 1], *cells])
     # Grouped headers keep the return, volatility and denominator for each horizon together.
     headers = html.Thead([
-        html.Tr([html.Th("Index quintile", rowSpan=2, scope="col"),
+        html.Tr([html.Th("Index group", rowSpan=2, scope="col"), html.Th("Score range", rowSpan=2, scope="col"),
                  *[html.Th(f"{m} month" + ("s" if m > 1 else ""), colSpan=3, scope="colgroup") for m in HORIZONS]]),
         html.Tr([html.Th(s, scope="col") for _ in HORIZONS for s in ["Return", "Ann. vol.", "Days"]]),
     ])
@@ -84,8 +92,10 @@ def prediction(r):
                             f" over the next month, with {pct(low.mean_vol)} annualized volatility. "
                             "After the greediest readings, those figures were ", html.Strong(pct(high.mean_return)),
                             f" and {pct(high.mean_vol)}."], className="research-finding")
-    return [html.H2("What followed each index quintile?"), narrative, graph("prediction-returns", fig),
-            results, html.P("One, three and six months correspond to 21, 63 and 126 observed TSX sessions. "
+    return [html.H2("What followed each sentiment group?"), narrative, graph("prediction-returns", fig),
+            results, html.P("Each group is one fifth of the index scores from 2010 to 2019, so its score range "
+                            "differs slightly from the regime thresholds on the overview gauge. "
+                            "One, three and six months correspond to 21, 63 and 126 observed TSX sessions. "
                             "Return includes reinvested dividends. Volatility is the sample standard deviation "
                             "of the following daily total returns, annualized using 252 sessions. Days counts "
                             "scored starting dates with a complete forward window. Adjacent windows overlap.",
@@ -128,8 +138,6 @@ def vix_comparison(r):
              f"{x.n:,}", pct(x.index_rmse), pct(x.vix_rmse),
              f"{100*x.advantage:+.3f} pp" if pd.notna(x.advantage) else "—"]
             for x in r.comparison.itertuples()]
-    hold = r.audit[r.audit.period == "holdout"]
-    fallback = (hold.volatility_source == "US VIX fallback").sum()
     one_month = valid[(valid.months == 1) & (valid.target == "return")]
     example = None
     if not one_month.empty:
@@ -142,63 +150,111 @@ def vix_comparison(r):
             html.P("Each test compares errors across many dates for one outcome and horizon. "
                    "The six tests cover returns and volatility over one, three and six months. "
                    "A signal can win a test even when the other signal is closer on many individual days."),
-            table(["Horizon", "Forecast target", "Paired days", "Index RMSE", "VIX RMSE", "Index advantage"],
+            table(["Horizon", "Forecast target", "Dates compared", "Index RMSE", "VIX RMSE", "Index advantage"],
                   rows, numeric_columns=(2, 3, 4, 5)),
             example,
             html.P("Each signal forecasts the historical mean outcome for its own quintile. Both sets of "
                    "means use the same training dates and only outcomes completed by December 31, 2019. "
                    "US VIX uses its own inverted trailing percentile, so high implied volatility ranks as fear."),
+            html.P("Dates compared counts the holdout dates on which both signals produced a forecast and "
+                   "the outcome had fully played out. Both errors are measured on exactly these dates, so "
+                   "neither signal is scored on a date the other lacks. Longer horizons have fewer dates "
+                   "because the final months of the holdout have not yet matured."),
             html.P("Root mean squared error (RMSE) measures the typical size of a forecast miss and gives "
                    "larger misses more weight. Both forecasts face exactly the same holdout dates for each "
                    "target. Positive advantage means the Canadian index reduced RMSE, in percentage points."),
-            html.P(f"US VIX supplied the Canadian index’s volatility component on {fallback:,} of "
-                   f"{len(hold):,} holdout sessions. This shared input and overlapping windows limit "
-                   "the interpretation of small differences.", className="muted"),
+            html.P("The Canadian index uses no US VIX data. When no Canadian volatility score is "
+                   "available, its other indicators share the weight. Overlapping forecast windows "
+                   "limit the interpretation of small differences.", className="muted"),
             calibration_details(r), download("Download matched forecast errors (CSV)", "vix-comparison.csv")]
 
 
 def backtest(r):
     ledger = r.ledger
     if len(ledger) < 2:
-        return [html.H2("Equity and bond switching rule"),
+        return [html.H2("Sentiment allocation versus 60/40"),
                 html.P("At least two holdout closes with both total-return levels are needed.")]
-    perf = r.performance
-    rows = [[x.portfolio, f"${x.end_wealth:,.2f}", pct(x.total_return), pct(x.cagr), pct(x.max_drawdown)]
-            for x in perf.itertuples()]
+    perf = r.performance.set_index("portfolio")
+    ours, base = perf.loc["Sentiment strategy"], perf.loc["60/40 strategy"]
+    bench = f"{BENCHMARK_EQUITY:.0%}/{1 - BENCHMARK_EQUITY:.0%}".replace("%", "")
+
+    def pp(x):
+        return f"{100 * x:+.2f} pp"
+
+    summary = [
+        ["Ending value of CAD 100", f"CAD {ours.end_wealth:,.2f}", f"CAD {base.end_wealth:,.2f}",
+         f"CAD {ours.end_wealth - base.end_wealth:+,.2f}"],
+        ["Cumulative return", pct(ours.total_return), pct(base.total_return),
+         pp(ours.total_return - base.total_return)],
+        ["Annualized return", pct(ours.cagr), pct(base.cagr), pp(ours.cagr - base.cagr)],
+        ["Annualized volatility", pct(ours.volatility), pct(base.volatility),
+         pp(ours.volatility - base.volatility)],
+        ["Sharpe ratio", f"{ours.sharpe:.2f}", f"{base.sharpe:.2f}", f"{ours.sharpe - base.sharpe:+.2f}"],
+        ["Maximum drawdown", pct(ours.max_drawdown), pct(base.max_drawdown),
+         pp(ours.max_drawdown - base.max_drawdown)],
+    ]
+    references = [[name, f"CAD {x.end_wealth:,.2f}", pct(x.total_return), pct(x.cagr), pct(x.volatility),
+                   f"{x.sharpe:.2f}", pct(x.max_drawdown)]
+                  for name, x in perf.drop(["Sentiment strategy", "60/40 strategy"]).iterrows()]
+    held = ledger.signal_regime.value_counts()
+    composition = [[g, f"{ALLOCATION[g]:.0%}", f"{1 - ALLOCATION[g]:.0%}", f"{int(held.get(g, 0)):,}"]
+                   for g in GROUPS]
     trades = ledger[ledger.switched]
     fig = go.Figure()
-    for col, name, dash in [("net_wealth", "Rule after costs", "solid"),
-                            ("equity_wealth", "TSX", "dash"),
-                            ("bond_wealth", "Canada Aggregate", "dot")]:
+    for col, name, key in [("strategy_wealth", "Sentiment strategy", "strategy"),
+                           ("benchmark_wealth", f"{bench} strategy", "benchmark"),
+                           ("equity_wealth", "TSX buy and hold", "equity")]:
         fig.add_scatter(x=ledger.index, y=ledger[col], name=name, mode="lines",
-                        line=dict(color=DATA_LINE, width=2, dash=dash), hovertemplate="CAD %{y:.2f}<extra>%{fullData.name}</extra>")
+                        line=dict(color=SERIES_COLORS[key], width=2.4 if key == "strategy" else 1.8),
+                        hovertemplate="CAD %{y:.2f}<extra>%{fullData.name}</extra>")
     style(fig, 340)
     fig.update_yaxes(title="Value of CAD 100")
-    return [html.H2("Equities in extreme fear, bonds in extreme greed"),
-            html.P("Start with CAD 100 in TSX equities. A score below 25 targets 100% equities. A score "
-                   "above 75 targets 100% Canadian aggregate bonds. Keep the last target between extremes "
-                   "or when a score is missing."),
-            html.P([f"From {day(ledger.index[0])} to {day(ledger.index[-1])}, the rule switched "
-                    f"{len(trades)} times. CAD 100 ended at ", html.Strong(f"CAD {ledger.net_wealth.iloc[-1]:,.2f}"),
-                    " after costs. Holding the TSX throughout ended at ",
-                    html.Strong(f"CAD {ledger.equity_wealth.iloc[-1]:,.2f}"), "."], className="research-finding"),
+    verdict = "higher" if ours.sharpe > base.sharpe else "lower" if ours.sharpe < base.sharpe else "the same"
+    return [html.H2(f"Sentiment allocation versus a {bench} portfolio"),
+            html.P(f"Both portfolios start with CAD 100 split {bench} between TSX equities and Canadian "
+                   "aggregate bonds. The sentiment strategy holds 100% equities after an Extreme fear reading, "
+                   f"100% bonds after an Extreme greed reading, and {bench} otherwise. The benchmark always "
+                   f"holds {bench}. A missing score keeps the last allocation."),
+            html.P([f"From {day(ledger.index[0])} to {day(ledger.index[-1])}, the sentiment strategy returned ",
+                    html.Strong(pct(ours.total_return)), f" against {pct(base.total_return)} for {bench}, with "
+                    f"{pct(ours.volatility)} annualized volatility against {pct(base.volatility)}. Its Sharpe "
+                    f"ratio was {verdict}: ", html.Strong(f"{ours.sharpe:.2f}"),
+                    f" against {base.sharpe:.2f}."], className="research-finding"),
             graph("backtest-wealth", fig),
-            table(["Portfolio", "Ending CAD", "Total return", "Annualized return", "Max. drawdown"],
-                  rows, numeric_columns=(1, 2, 3, 4)),
+            html.H3("Performance summary"),
+            table(["Measure", "Sentiment strategy", f"{bench} strategy", "Difference"], summary,
+                  numeric_columns=(1, 2, 3)),
+            html.H3("Sentiment strategy allocation"),
+            table(["Regime at the signal close", "Equities", "Bonds", "Holdout sessions in force"], composition,
+                  numeric_columns=(1, 2, 3)),
+            html.P("Regimes use the overview thresholds: Extreme fear is below 25 and Extreme greed is above 75. "
+                   "Each session counts the regime whose allocation applied after that close.", className="muted"),
             html.H3("Execution and limits"),
-            html.P(f"Each signal can execute at the next close with both asset levels. The prior holding earns "
-                   f"the return up to that close. Each full switch costs {SWITCH_COST:.2%} of portfolio value "
-                   f"across both legs. There were {len(r.audit[r.audit.period == 'holdout'])-len(ledger)} "
-                   "holdout sessions without both asset levels. Positions carry across those gaps."),
+            html.P("Each signal can execute at the next close with both asset levels. The prior mix earns "
+                   "the return up to that close. Both portfolios rebalance to their target mix at every such "
+                   f"close. Trading costs {SWITCH_COST:.2%} of the value moved between equities and bonds, "
+                   f"so a full switch costs {SWITCH_COST:.2%} of the portfolio. There were "
+                   f"{len(r.audit[r.audit.period == 'holdout']) - len(ledger)} holdout sessions without both "
+                   "asset levels. Positions carry across those gaps."),
+            html.P("Annualized volatility is the standard deviation of daily returns times the square root of "
+                   "252. The Sharpe ratio is the annualized mean daily return divided by that volatility. It "
+                   "uses a 0% risk-free rate because no cash-rate series is loaded. A positive cash rate lowers "
+                   "both ratios, and lowers the less volatile portfolio's ratio by more."),
             html.P("Extreme readings can persist. Moving to bonds can miss an equity rally, and bonds can "
                    "fall when yields rise. Both legs use benchmark total returns. An ETF investor would also "
-                   "face fund fees, tracking differences, taxes and variable trading costs. Drawdowns use "
-                   "joint closing levels. Historical releases may have arrived later than the assumed trade time."),
-            html.Details([html.Summary(f"Inspect the {len(trades)} switches"),
-                          table(["Signal close", "Score", "Execution close", "New position", "Wealth after cost"],
-                                [[day(x.signal_date), f"{x.signal_score:.2f}", day(date),
-                                  "Equities" if x.equity_after_close else "Bonds", f"CAD {x.net_wealth:.2f}"]
-                                 for date, x in trades.iterrows()])], className="quote-details"),
+                   "face fund fees, tracking differences, taxes and variable trading costs. Historical "
+                   "releases may have arrived later than the assumed trade time."),
+            html.Details([html.Summary("Single-asset and before-cost references"),
+                          table(["Portfolio", "Ending CAD", "Total return", "Annualized return",
+                                 "Annualized volatility", "Sharpe ratio", "Max. drawdown"],
+                                references, numeric_columns=(1, 2, 3, 4, 5, 6))], className="quote-details"),
+            html.Details([html.Summary(f"Inspect the {len(trades)} allocation changes"),
+                          table(["Signal close", "Score", "Regime", "Execution close", "New equity weight",
+                                 "Wealth after cost"],
+                                [[day(x.signal_date), f"{x.signal_score:.2f}", x.signal_regime, day(date),
+                                  f"{x.equity_after_close:.0%}", f"CAD {x.strategy_wealth:.2f}"]
+                                 for date, x in trades.iterrows()],
+                                numeric_columns=(1, 4, 5))], className="quote-details"),
             download("Download the dated backtest ledger (CSV)", "backtest-ledger.csv")]
 
 

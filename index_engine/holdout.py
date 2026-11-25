@@ -7,7 +7,7 @@ import json
 import numpy as np
 import pandas as pd
 
-from .buildindicatorsfromdata import COMPONENTS, build_index
+from .buildindicatorsfromdata import COMPONENTS, build_index, regime
 from .loadpulleddata import ROOT
 
 
@@ -20,7 +20,15 @@ BASELINE = {
     "breadth_enabled": True, "display_start": "2010-01-01",
 }
 CALIBRATION_FILE = ROOT / "support" / "config" / "holdout-calibration.json"
+# Cost per unit of portfolio moved between equities and bonds: 5 bp on each leg.
 SWITCH_COST = 0.001
+BENCHMARK_EQUITY = 0.6
+# Equity weight targeted after each regime; the remainder is held in Canadian aggregate bonds.
+ALLOCATION = {"Extreme fear": 1.0, "Fear": BENCHMARK_EQUITY, "Neutral": BENCHMARK_EQUITY,
+              "Greed": BENCHMARK_EQUITY, "Extreme greed": 0.0}
+TRADING_DAYS = 252
+# No cash-rate series is loaded, so Sharpe ratios use a 0% risk-free rate.
+RISK_FREE = 0.0
 EPISODES = {
     "March 2020": ("2020-03-01", "2020-03-31"),
     "Calendar 2022": ("2022-01-01", "2022-12-31"),
@@ -72,7 +80,7 @@ def fit_calibration(history):
                                   mean_return=rows[ret].mean() if len(rows) else None,
                                   mean_vol=rows[vol].mean() if len(rows) else None))
         models[signal] = dict(cuts=cuts, score_count=len(scores), forecasts=means)
-    return dict(design="baseline-v1-2026-11-06", settings=BASELINE,
+    return dict(design="baseline-v2-2026-11-25", settings=BASELINE,
                 components=list(COMPONENTS), training_first=train.index[0].date().isoformat(),
                 train_end=CUTOFF.date().isoformat(), train_sha256=training_fingerprint(train),
                 sessions_per_horizon=HORIZONS, models=models)
@@ -123,31 +131,45 @@ def episode_table(history):
 
 
 def run_backtest(history):
-    """A close signal can execute only at a later joint close, after marking the old holding."""
+    """Sentiment allocation versus a 60/40 mix, both rebalanced to target at every joint close.
+
+    A close signal can execute only at a later joint close, after the old mix earns the interval.
+    """
     hold = history.loc[history.index > CUTOFF, ["index", "tsx_total_return", "bond_total_return"]]
     ledger = hold.dropna(subset=["tsx_total_return", "bond_total_return"]).copy()
     if ledger.empty:
         return ledger, pd.DataFrame()
-    # Start endowed with equities at the first investable close, with no pre-start orders.
+    # Both portfolios start as 60/40 at the first investable close, with no pre-start orders.
     hold = hold.loc[ledger.index[0]:]
-    target = pd.Series(np.nan, index=hold.index)
-    target.loc[hold["index"] < 25] = 1
-    target.loc[hold["index"] > 75] = 0
+    regimes = hold["index"].map(regime).where(hold["index"].notna())
+    target = regimes.map(ALLOCATION)
     eligible = target.ffill().shift()
     ledger["signal_date"] = hold.index.to_series().where(target.notna()).ffill().shift()
     ledger["signal_score"] = hold["index"].where(target.notna()).ffill().shift()
-    ledger["equity_after_close"] = eligible.reindex(ledger.index).fillna(1).astype(int)
-    prior = ledger["equity_after_close"].shift(fill_value=1)
+    ledger["signal_regime"] = regimes.ffill().shift()
+    ledger["equity_after_close"] = eligible.reindex(ledger.index).fillna(BENCHMARK_EQUITY)
+    prior = ledger["equity_after_close"].shift(fill_value=BENCHMARK_EQUITY)
     ledger["equity_during_interval"] = prior
     ledger["switched"] = prior.ne(ledger["equity_after_close"])
     eq = ledger.tsx_total_return.pct_change(fill_method=None)
     bond = ledger.bond_total_return.pct_change(fill_method=None)
     ledger["equity_return"], ledger["bond_return"] = eq, bond
-    ledger["gross_return"] = eq.where(prior.eq(1), bond)
-    ledger["cost_fraction"] = SWITCH_COST * ledger["switched"]
-    ledger["net_return"] = (1 + ledger.gross_return) * (1 - ledger.cost_fraction) - 1
-    paths = {"Rule after costs": ("net_wealth", ledger.net_return),
-             "Rule before costs": ("gross_wealth", ledger.gross_return),
+
+    def mix(weight, after):
+        """Interval return, then the cost of trading the drifted mix back to `after`."""
+        gross = weight * eq + (1 - weight) * bond
+        drifted = weight * (1 + eq) / (1 + gross)
+        turnover = (after - drifted).abs().fillna(0)
+        cost = SWITCH_COST * turnover
+        return gross, turnover, cost, (1 + gross) * (1 - cost) - 1
+
+    (ledger["gross_return"], ledger["turnover"], ledger["cost_fraction"],
+     ledger["net_return"]) = mix(prior, ledger["equity_after_close"])
+    (ledger["benchmark_gross_return"], ledger["benchmark_turnover"], ledger["benchmark_cost_fraction"],
+     ledger["benchmark_return"]) = mix(BENCHMARK_EQUITY, BENCHMARK_EQUITY)
+    paths = {"Sentiment strategy": ("strategy_wealth", ledger.net_return),
+             "Sentiment strategy before costs": ("strategy_gross_wealth", ledger.gross_return),
+             "60/40 strategy": ("benchmark_wealth", ledger.benchmark_return),
              "TSX buy and hold": ("equity_wealth", eq),
              "Canada Aggregate buy and hold": ("bond_wealth", bond)}
     years = (ledger.index[-1] - ledger.index[0]).days / 365.2425
@@ -155,9 +177,13 @@ def run_backtest(history):
     for label, (column, returns) in paths.items():
         wealth = 100 * (1 + returns.fillna(0)).cumprod()
         ledger[column] = wealth
+        daily = returns.iloc[1:]
+        vol = daily.std(ddof=1) * np.sqrt(TRADING_DAYS)
         performance.append(dict(portfolio=label, end_wealth=wealth.iloc[-1],
                                 total_return=wealth.iloc[-1]/100 - 1,
                                 cagr=(wealth.iloc[-1]/100)**(1/years)-1 if years else np.nan,
+                                volatility=vol,
+                                sharpe=(daily.mean() * TRADING_DAYS - RISK_FREE) / vol if vol else np.nan,
                                 max_drawdown=(wealth / wealth.cummax() - 1).min()))
     return ledger, pd.DataFrame(performance)
 
