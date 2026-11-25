@@ -11,6 +11,8 @@ from .holdout import ALLOCATION, BENCHMARK_EQUITY, HORIZONS, SWITCH_COST
 
 # Fifths of the 2010-2019 index scores, from most fearful to greediest.
 GROUPS = ["Extreme fear", "Fear", "Neutral", "Greed", "Extreme greed"]
+# Fear in reds through greed in blues, matching the overview gauge.
+GROUP_COLORS = ["#84243a", "#cb6b72", "#b5a9a4", "#7f95b5", "#3f5a80"]
 SERIES_COLORS = {"strategy": DATA_LINE, "benchmark": "#b3123a", "equity": "#4f6f9c"}
 
 TABS = {"prediction": "Prediction", "episodes": "Episodes",
@@ -64,11 +66,14 @@ def prediction(r):
     cuts = r.calibration["models"]["index"]["cuts"]
     bounds = [0, *cuts, 100]
     ranges = [f"{lo:.1f}–{hi:.1f}" for lo, hi in zip(bounds, bounds[1:])]
-    for (months, _), color in zip(HORIZONS.items(), ["#84243a", "#cb6b72", "#677a96"]):
-        values = summary.xs(months, level="months").mean_return
-        fig.add_bar(x=labels, y=values, name=f"{months} month" + ("s" if months > 1 else ""),
-                    marker_color=color, hovertemplate="%{y:.2%}<extra>%{fullData.name}</extra>")
+    # Horizons on the axis, one bar per sentiment group within each horizon.
+    horizons = [f"{m} month" + ("s" if m > 1 else "") for m in HORIZONS]
+    for q, (label, color) in enumerate(zip(labels, GROUP_COLORS), 1):
+        values = summary.xs(q, level="quintile").mean_return.reindex(list(HORIZONS))
+        fig.add_bar(x=horizons, y=values, name=label, marker_color=color,
+                    hovertemplate="%{y:.2%}<extra>%{fullData.name}</extra>")
     style(fig, 320)
+    fig.update_layout(barmode="group", bargroupgap=0.08)
     fig.update_yaxes(title="Average total return", tickformat=".0%")
     rows = []
     for q, label in enumerate(labels, 1):
