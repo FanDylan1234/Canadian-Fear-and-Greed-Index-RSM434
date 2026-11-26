@@ -60,7 +60,7 @@ class StartupAndDateTests(unittest.TestCase):
 
     def test_launcher_selects_task_and_forwards_options(self):
         for arguments, module, remaining in [
-            (["--offline"], "dashdesign", ["--offline"]),
+            (["--offline"], "frozen_dashboard", ["--offline"]),
             (["--update", "--refresh"], "update_index", ["--refresh"]),
             (["--check-data"], "run_all_checks", []),
         ]:

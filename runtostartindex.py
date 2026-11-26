@@ -133,11 +133,11 @@ def prepare_bloomberg():
     subprocess.run(probe, check=True)
 
 
-def run(module="dashdesign", arguments=None):
+def run(module="frozen_dashboard", arguments=None):
     """Launch a project entry point with packages installed in the same Python."""
     try:
         arguments = arguments or []
-        if module == "dashdesign":
+        if module in ("dashdesign", "frozen_dashboard"):
             options = argparse.ArgumentParser(add_help=False)
             options.add_argument("--port", type=int, default=8050)
             selected, _ = options.parse_known_args(arguments)
@@ -184,8 +184,10 @@ def main():
                        const="run_all_checks", help="Diagnose source access")
     modes.add_argument("--repair-breadth", dest="module", action="store_const",
                        const="repair_breadth", help="Replace legacy breadth data")
+    modes.add_argument("--freeze", dest="module", action="store_const",
+                       const="frozen_snapshot", help="Save cached data for the hosted evaluation edition")
     args, remaining = parser.parse_known_args()
-    return run(args.module or "dashdesign", remaining)
+    return run(args.module or "frozen_dashboard", remaining)
 
 
 if __name__ == "__main__":

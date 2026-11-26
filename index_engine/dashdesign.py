@@ -265,6 +265,8 @@ def methodology(config):
         ),
         html.H3("Sources and timing"),
         html.P(
+            f"This edition is frozen through {config['snapshot_date']}. Sources and quotes do not refresh."
+            if config.get("snapshot_date") else
             "Daily history ends at yesterday in Toronto. Bloomberg quotes appear under Data & weights. The put/call source can publish later than the other inputs."
         ),
         html.P(
@@ -314,6 +316,7 @@ def create_app(offline=False, start_worker=False, service=None):
     )
     from index_engine.sandbox_views import sandbox_layout, register_sandbox
 
+    frozen = getattr(service, "frozen", False)
     app.service = service
     result, _, _, _, _, _ = service.snapshot()
     latest = (
@@ -339,7 +342,8 @@ def create_app(offline=False, start_worker=False, service=None):
                             className="brand",
                         ),
                         html.Button([html.Span("↻", **{"aria-hidden": "true"}), "Refresh data"],
-                                    id="refresh-button", n_clicks=0, className="refresh-button"),
+                                    id="refresh-button", n_clicks=0, className="refresh-button",
+                                    style={"display": "none"} if frozen else None),
                     ],
                     className="nav-inner",
                 )
@@ -421,7 +425,7 @@ def create_app(offline=False, start_worker=False, service=None):
                 className="container",
             ),
             dcc.Store(id="render-key"),
-            dcc.Interval(id="ui-tick", interval=5000, n_intervals=0),
+            dcc.Interval(id="ui-tick", interval=5000, n_intervals=0, disabled=frozen),
         ]
     )
 
@@ -441,7 +445,7 @@ def create_app(offline=False, start_worker=False, service=None):
         State("render-key", "data"),
     )
     def render(view, tick, clicks, start, end, selected_date, previous_key):
-        if ctx.triggered_id == "refresh-button":
+        if ctx.triggered_id == "refresh-button" and not frozen:
             service.request_refresh()
         result, manifest, status, quotes, error, busy = service.snapshot()
         controls = {
@@ -449,7 +453,7 @@ def create_app(offline=False, start_worker=False, service=None):
             "--timeline-display": "flex" if view == "timeline" else "none",
             "--weights-display": "flex" if view == "data" else "none",
         }
-        quote_content = quote_details(quotes, error) if view == "data" else []
+        quote_content = quote_details(quotes, error) if view == "data" and not frozen else []
         if result is None:
             return (
                 html.Div(
@@ -479,7 +483,9 @@ def create_app(offline=False, start_worker=False, service=None):
             - result.history.index[-1].date()
         ).days
         banner = []
-        if busy:
+        if frozen:
+            banner = [html.Span(status)]
+        elif busy:
             banner = [html.Span("Updating data\u2026")]
         elif age > 4:
             banner = [
@@ -525,6 +531,11 @@ def create_app(offline=False, start_worker=False, service=None):
 
     @app.server.get("/download/<name>")
     def download(name):
+        if frozen:
+            data = service.downloads.get(name)
+            if data is None:
+                abort(404)
+            return send_file(BytesIO(data), as_attachment=True, download_name=name)
         output = Path(getattr(service, "output", None) or ROOT / "index-results")
         if name in {"holdout-audit.zip", "observations.csv", "calibration.json",
                     "episodes.csv", "vix-comparison.csv", "backtest-ledger.csv"}:
@@ -552,7 +563,7 @@ def create_app(offline=False, start_worker=False, service=None):
 
     register_sandbox(app, service, reading_summary)
 
-    if start_worker:
+    if start_worker and not frozen:
         service.start()
     return app
 
