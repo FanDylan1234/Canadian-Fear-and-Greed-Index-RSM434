@@ -6,7 +6,7 @@ from dash import dcc, html
 
 from .chartsdesign import DATA_LINE, history_chart, style
 from .dashboard_components import table
-from .buildindicatorsfromdata import SENTIMENT_RANGES, regime
+from .buildindicatorsfromdata import SENTIMENT_RANGES
 from .holdout import ALLOCATION, BENCHMARK_EQUITY, HORIZONS, SWITCH_COST
 
 
@@ -52,26 +52,6 @@ def return_pattern(r):
             finding = "Mixed — average returns do not fall at every step from fear to greed"
         rows.append([f"{months} month" + ("s" if months > 1 else ""), finding])
     return table(["Horizon", "Does more fear consistently precede a higher return?"], rows)
-
-
-def current_forecasts(r):
-    latest = r.audit.iloc[-1]
-    rows = []
-    for signal, label in (("index", "Canadian index"), ("vix_score", "US VIX")):
-        score = latest[signal]
-        group = regime(score)
-        for months in HORIZONS:
-            model = next((f for f in r.calibration["models"][signal]["forecasts"]
-                          if f["sentiment"] == group and f["months"] == months), None)
-            rows.append([label, f"{score:.2f}" if pd.notna(score) else "—", group,
-                         f"{months}m", pct(model["mean_return"]) if model else "—",
-                         pct(model["mean_vol"]) if model else "—", f"{model['n']:,}" if model else "0"])
-    return [html.H3(f"What the latest readings imply · {day(r.audit.index[-1])}"),
-            html.P("For each current sentiment, the forecast is the average outcome after that same "
-                   "sentiment in 2010–2019. Training days counts completed examples with both signals "
-                   "available. No examples means no forecast. These historical averages are not promises."),
-            table(["Signal", "Score / 100", "Current sentiment", "Horizon", "Return forecast",
-                   "Ann. volatility forecast", "Training days"], rows, numeric_columns=(1, 4, 5, 6))]
 
 
 def prediction(r):
@@ -212,7 +192,6 @@ def vix_comparison(r):
                    "High US VIX means more expected turbulence. Its score reverses its rank against "
                    "prior observations, so unusually high VIX maps toward fear. A score of 25 here "
                    "does not mean a raw VIX level of 25."),
-            *current_forecasts(r),
             html.H3("Which was closer after 2019?"),
             html.P("Smaller forecast error is better. Errors below use percentage points (pp); "
                    "RMSE is explained with an example just below the table."),

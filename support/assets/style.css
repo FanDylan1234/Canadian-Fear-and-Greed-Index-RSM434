@@ -159,8 +159,8 @@ details[open] > summary::after { transform: rotate(225deg); margin-top: 4px; }
 [data-view] > p, .quote-details p { max-width: 85ch; margin: 12px 0; color: var(--quiet); }
 [data-view] > h2 { max-width: 35ch; }
 [data-view] > h2 + p { font-size: 16px; }
-[data-view] > .research-finding { max-width: none; margin: 16px 0; padding: 13px 18px;
-  background: var(--wash); border-left: 3px solid #b64b60; border-radius: 0 8px 8px 0; color: #6f2939; }
+[data-view] > .research-finding { max-width: none; margin: 16px 0;
+  color: var(--ink); font-weight: 700; }
 [data-view] > p.research-period { margin: 0 0 9px; font-size: 12px; font-weight: 650;
   color: var(--accent); letter-spacing: .035em; }
 [data-view] > .dash-graph { margin: 17px 0; }
