@@ -9,7 +9,7 @@ import os
 import pandas as pd
 from .loadpulleddata import ROOT, load_config, read_inputs
 from .buildindicatorsfromdata import build_index
-from .holdout import evaluate, training_fingerprint, CALIBRATION_FILE, SWITCH_COST
+from .holdout import evaluate, SWITCH_COST
 from .research_export import audit_bundle
 
 
@@ -78,12 +78,10 @@ def build(raw_dir=None, output=None, config=None):
         coverage=coverage,
     )
     research = evaluate(result, inputs, config)
-    current_training_hash = training_fingerprint(research.audit)
     manifest["holdout"] = {
-        "calibration_sha256": hashlib.sha256(CALIBRATION_FILE.read_bytes()).hexdigest(),
-        "frozen_training_sha256": research.calibration["train_sha256"],
-        "current_training_sha256": current_training_hash,
-        "training_matches_freeze": current_training_hash == research.calibration["train_sha256"],
+        "calibration_sha256": hashlib.sha256(json.dumps(research.calibration, indent=2).encode()).hexdigest(),
+        "training_sha256": research.calibration["train_sha256"],
+        "training_end": research.calibration["train_end"],
         "switch_cost_fraction": SWITCH_COST,
         "source_files": {name: hashlib.sha256((ROOT / "index_engine" / name).read_bytes()).hexdigest()
                          for name in ("buildindicatorsfromdata.py", "holdout.py", "loadpulleddata.py")},

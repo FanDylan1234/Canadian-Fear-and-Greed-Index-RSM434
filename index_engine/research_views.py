@@ -1,4 +1,4 @@
-"""Dashboard views for the frozen evaluation and its execution ledger."""
+"""Dashboard views for sentiment-based forecasts and their evaluation."""
 
 import pandas as pd
 import plotly.graph_objects as go
@@ -6,11 +6,12 @@ from dash import dcc, html
 
 from .chartsdesign import DATA_LINE, history_chart, style
 from .dashboard_components import table
+from .buildindicatorsfromdata import SENTIMENT_RANGES, regime
 from .holdout import ALLOCATION, BENCHMARK_EQUITY, HORIZONS, SWITCH_COST
 
 
-# Fifths of the 2010-2019 index scores, from most fearful to greediest.
-GROUPS = ["Extreme fear", "Fear", "Neutral", "Greed", "Extreme greed"]
+# Methodology score bands, from fear to greed.
+GROUPS = list(SENTIMENT_RANGES)
 # Fear in reds through greed in blues, matching the overview gauge.
 GROUP_COLORS = ["#84243a", "#cb6b72", "#b5a9a4", "#7f95b5", "#3f5a80"]
 SERIES_COLORS = {"strategy": DATA_LINE, "benchmark": "#b3123a", "equity": "#4f6f9c"}
@@ -38,38 +39,50 @@ def download(label, filename):
     return html.A(label, href="/download/" + filename, className="text-link")
 
 
-def calibration_details(r):
-    models = r.calibration["models"]
-    return html.Details([
-        html.Summary("Frozen design and quintile boundaries"),
-        html.P("The seven-indicator baseline ranks each signal against up to 252 prior TSX sessions, "
-               "with 126 valid observations required. The index equally weights the available scores "
-               "and requires at least five. The same rules apply throughout the holdout."),
-        html.P(f"Boundaries use daily scores from {r.calibration['training_first']} through "
-               "2019-12-31. A score on a boundary stays in the lower quintile. "
-               "The Extreme fear group is the most fearful fifth of the training sample and Extreme greed the "
-               "greediest. Holdout groups can differ in size."),
-        table(["Signal", "Training scores", "20th percentile", "40th", "60th", "80th"],
-              [[label, f"{models[key]['score_count']:,}", *[f"{cut:.4f}" for cut in models[key]["cuts"]]]
-               for key, label in (("index", "Canadian index"), ("vix_score", "US VIX score"))],
-              numeric_columns=(1, 2, 3, 4, 5)),
-        html.P("The research design was reconstructed retrospectively from cached history. "
-               "Historical revisions and the actual release time of a daily input can affect a replay."),
-        download("Download full-precision calibration", "calibration.json"),
-    ], className="quote-details")
+def return_pattern(r):
+    rows = []
+    for months in HORIZONS:
+        groups = r.prediction[r.prediction.months == months].set_index("sentiment").reindex(GROUPS)
+        values = groups.mean_return
+        if values.isna().any():
+            finding = "Not enough completed outcomes in every group"
+        elif (values.diff().dropna() < 0).all():
+            finding = "Yes — average returns fall at every step from fear to greed"
+        else:
+            finding = "Mixed — average returns do not fall at every step from fear to greed"
+        rows.append([f"{months} month" + ("s" if months > 1 else ""), finding])
+    return table(["Horizon", "Does more fear consistently precede a higher return?"], rows)
+
+
+def current_forecasts(r):
+    latest = r.audit.iloc[-1]
+    rows = []
+    for signal, label in (("index", "Canadian index"), ("vix_score", "US VIX")):
+        score = latest[signal]
+        group = regime(score)
+        for months in HORIZONS:
+            model = next((f for f in r.calibration["models"][signal]["forecasts"]
+                          if f["sentiment"] == group and f["months"] == months), None)
+            rows.append([label, f"{score:.2f}" if pd.notna(score) else "—", group,
+                         f"{months}m", pct(model["mean_return"]) if model else "—",
+                         pct(model["mean_vol"]) if model else "—", f"{model['n']:,}" if model else "0"])
+    return [html.H3(f"What the latest readings imply · {day(r.audit.index[-1])}"),
+            html.P("For each current sentiment, the forecast is the average outcome after that same "
+                   "sentiment in 2010–2019. Training days counts completed examples with both signals "
+                   "available. No examples means no forecast. These historical averages are not promises."),
+            table(["Signal", "Score / 100", "Current sentiment", "Horizon", "Return forecast",
+                   "Ann. volatility forecast", "Training days"], rows, numeric_columns=(1, 4, 5, 6))]
 
 
 def prediction(r):
-    summary = r.prediction.set_index(["quintile", "months"])
+    summary = r.prediction.set_index(["sentiment", "months"])
     fig = go.Figure()
     labels = GROUPS
-    cuts = r.calibration["models"]["index"]["cuts"]
-    bounds = [0, *cuts, 100]
-    ranges = [f"{lo:.1f}–{hi:.1f}" for lo, hi in zip(bounds, bounds[1:])]
+    ranges = list(SENTIMENT_RANGES.values())
     # Horizons on the axis, one bar per sentiment group within each horizon.
     horizons = [f"{m} month" + ("s" if m > 1 else "") for m in HORIZONS]
-    for q, (label, color) in enumerate(zip(labels, GROUP_COLORS), 1):
-        values = summary.xs(q, level="quintile").mean_return.reindex(list(HORIZONS))
+    for label, color in zip(labels, GROUP_COLORS):
+        values = summary.xs(label, level="sentiment").mean_return.reindex(list(HORIZONS))
         fig.add_bar(x=horizons, y=values, name=label, marker_color=color,
                     hovertemplate="%{y:.2%}<extra>%{fullData.name}</extra>")
     style(fig, 320)
@@ -79,7 +92,7 @@ def prediction(r):
     for q, label in enumerate(labels, 1):
         cells = []
         for months in HORIZONS:
-            s = summary.loc[(q, months)]
+            s = summary.loc[(label, months)]
             cells.extend([pct(s.mean_return), pct(s.mean_vol), f"{int(s.n):,}"])
         rows.append([label, ranges[q - 1], *cells])
     # Grouped headers keep the return, volatility and denominator for each horizon together.
@@ -91,20 +104,27 @@ def prediction(r):
     results = html.Div(html.Table([headers, html.Tbody([html.Tr([html.Td(c) for c in row]) for row in rows])]),
                        className="table-scroll research-grid")
     narrative = None
-    low, high = summary.loc[(1, 1)], summary.loc[(5, 1)]
+    low, high = summary.loc[("Extreme fear", 1)], summary.loc[("Extreme greed", 1)]
     if low.n and high.n:
-        narrative = html.P(["After the most fearful readings, the TSX averaged ", html.Strong(pct(low.mean_return)),
+        narrative = html.P(["After Extreme fear (below 25), the TSX averaged ", html.Strong(pct(low.mean_return)),
                             f" over the next month, with {pct(low.mean_vol)} annualized volatility. "
-                            "After the greediest readings, those figures were ", html.Strong(pct(high.mean_return)),
+                            "After Extreme greed (above 75), those figures were ", html.Strong(pct(high.mean_return)),
                             f" and {pct(high.mean_vol)}."], className="research-finding")
-    return [html.H2("What followed each sentiment group?"), narrative, graph("prediction-returns", fig),
-            results, html.P("Each group is one fifth of the index scores from 2010 to 2019, so its score range "
-                            "differs slightly from the regime thresholds on the overview gauge. "
-                            "One, three and six months correspond to 21, 63 and 126 observed TSX sessions. "
-                            "Return includes reinvested dividends. Volatility is the sample standard deviation "
-                            "of the following daily total returns, annualized using 252 sessions. Days counts "
-                            "scored starting dates with a complete forward window. Adjacent windows overlap.",
-                            className="muted"), calibration_details(r),
+    return [html.H2("Does fear precede stronger TSX returns?"),
+            html.P("The hypothesis is contrarian: Extreme fear should be followed by the highest average "
+                   "return, then Fear, Neutral, Greed and Extreme greed. We test that expectation against "
+                   "what actually happened from 2020 onward; the results are allowed to disagree."),
+            narrative, graph("prediction-returns", fig), results, return_pattern(r),
+            html.P("Groups use the same score bands as Methodology and the Overview gauge. Decimal "
+                   "scores are classified before rounding; 24.9 is Extreme fear and 25.0 is Fear. "
+                   "Groups can have very different numbers of days."),
+            html.P("These are observed outcomes, not forecasts made in advance. One, three and six "
+                   "months mean 21, 63 and 126 TSX sessions. Return includes reinvested dividends. "
+                   "Annualized volatility measures how much daily returns fluctuated during that window. "
+                   "Days counts starting dates with a complete outcome; overlapping windows are not "
+                   "independent examples. Small groups are less reliable.", className="muted"),
+            html.P("The US VIX comparison tab asks a separate question: using only pre-2020 examples "
+                   "to make forecasts, which signal was closer to the actual TSX outcomes after 2019?"),
             download("Download daily scores and forward outcomes (CSV)", "observations.csv")]
 
 
@@ -131,47 +151,92 @@ def episodes(r):
 
 def vix_comparison(r):
     valid = r.comparison.dropna(subset=["advantage"])
-    wins = int((valid.advantage > 0).sum())
-    ties = int((valid.advantage == 0).sum())
-    if len(valid):
-        losses = len(valid) - wins - ties
-        finding = (f"Across {len(valid)} tests, US VIX had lower root mean squared error (RMSE) in {losses}, "
-                   f"the Canadian index in {wins}, with {ties} ties.")
-    else:
-        finding = "No paired forecasts have matured."
-    rows = [[f"{x.months}m", "TSX total return" if x.target == "return" else "Annualized volatility",
-             f"{x.n:,}", pct(x.index_rmse), pct(x.vix_rmse),
-             f"{100*x.advantage:+.3f} pp" if pd.notna(x.advantage) else "—"]
-            for x in r.comparison.itertuples()]
-    one_month = valid[(valid.months == 1) & (valid.target == "return")]
+    rows = []
+    for x in r.comparison.itertuples():
+        winner = ("Canadian index" if x.advantage > 0 else "US VIX" if x.advantage < 0 else
+                  "Tie" if pd.notna(x.advantage) else "No paired forecasts")
+        rows.append([f"{x.months}m", "TSX total return" if x.target == "return" else "Annualized TSX volatility",
+                     f"{x.n:,}", f"{100*x.index_rmse:.3f} pp" if pd.notna(x.index_rmse) else "—",
+                     f"{100*x.vix_rmse:.3f} pp" if pd.notna(x.vix_rmse) else "—", winner])
+    findings = []
+    for target, label in (("return", "return"), ("vol", "volatility")):
+        tests = valid[valid.target == target]
+        if len(tests):
+            wins = int((tests.advantage > 0).sum())
+            losses = int((tests.advantage < 0).sum())
+            findings.append(f"For {label} forecasts, the Canadian index had the smaller error at "
+                            f"{wins} of {len(tests)} horizons; US VIX won {losses}, with "
+                            f"{len(tests) - wins - losses} ties.")
+    if not findings:
+        findings = ["No dates yet have a completed outcome and both forecasts."]
+    summary = r.prediction.set_index(["sentiment", "months"])
+    fear, greed = summary.loc[("Extreme fear", 1)], summary.loc[("Extreme greed", 1)]
+    observed = None
+    if fear.n and greed.n:
+        observed = html.P(f"In Prediction, the observed one-month return after Extreme fear is "
+                          f"{pct(fear.mean_return)}, versus {pct(greed.mean_return)} after Extreme greed. "
+                          "Those averages describe 2020 onward. Here we test forecasts learned from "
+                          "2010–2019, so future outcomes cannot teach the model its own answers.")
     example = None
-    if not one_month.empty:
-        m = one_month.iloc[0]
-        example = html.P(f"For one-month returns, the Canadian forecast was closer on "
-                         f"{int(m.index_closer_days):,} of {int(m.n):,} dates. Across all those dates, "
-                         f"its RMSE was {pct(m.index_rmse)} and US VIX’s was {pct(m.vix_rmse)}. "
-                         f"The gap was {abs(m.advantage)*100:.3f} percentage points.")
-    return [html.H2("Does the Canadian index beat US VIX alone?"), html.P(finding, className="research-finding"),
-            html.P("Each test compares errors across many dates for one outcome and horizon. "
-                   "The six tests cover returns and volatility over one, three and six months. "
-                   "A signal can win a test even when the other signal is closer on many individual days."),
-            table(["Horizon", "Forecast target", "Dates compared", "Index RMSE", "VIX RMSE", "Index advantage"],
-                  rows, numeric_columns=(2, 3, 4, 5)),
+    cols = ["return_1m", "index_forecast_return_1m", "vix_score_forecast_return_1m"]
+    paired = r.audit.loc[r.audit.period == "holdout"].dropna(subset=cols)
+    if len(paired):
+        sample = paired.iloc[-1]
+        index_error = abs(sample.index_forecast_return_1m - sample.return_1m) * 100
+        vix_error = abs(sample.vix_score_forecast_return_1m - sample.return_1m) * 100
+        example = html.P(f"One completed example: on {day(paired.index[-1])}, the Canadian index was "
+                         f"{sample.index_sentiment} and forecast {pct(sample.index_forecast_return_1m)} "
+                         f"over the next month. US VIX was {sample.vix_score_sentiment} and forecast "
+                         f"{pct(sample.vix_score_forecast_return_1m)}. The TSX actually returned "
+                         f"{pct(sample.return_1m)} by {day(sample.end_1m)}. The misses were "
+                         f"{index_error:.2f} and {vix_error:.2f} percentage points, respectively.",
+                         className="research-finding")
+    return [html.H2("Which sentiment signal forecasts the TSX better?"),
+            html.P("We compare two ways to forecast the same future TSX return and volatility: the "
+                   "Canadian Fear & Greed Index and US VIX alone. We are not forecasting the future "
+                   "VIX level or comparing Canadian returns with US stock returns."),
+            *[html.P(finding, className="research-finding") for finding in findings],
+            observed,
+            html.H3("From today's sentiment to a forecast"),
+            html.Ol([
+                html.Li("Read the sentiment score. Both signals use the Methodology bands: below 25 "
+                        "is Extreme fear, 25 to below 45 is Fear, 45–55 is Neutral, above 55–75 is Greed, "
+                        "and above 75 is Extreme greed."),
+                html.Li("Look up what followed that sentiment in 2010–2019. That group's average TSX "
+                        "return is the return forecast; its average future volatility is the volatility "
+                        "forecast. Each signal uses its own group averages, learned on the same eligible dates."),
+                html.Li("For each date from 2020 onward, compare those forecasts with what happened "
+                        "over the following 1, 3 or 6 months. Score both on exactly the same dates.")]),
+            html.P("The hypothesis from Prediction is that more fear precedes stronger returns. "
+                   "We do not force the forecasts into that order: they follow the training evidence. "
+                   "High US VIX means more expected turbulence. Its score reverses its rank against "
+                   "prior observations, so unusually high VIX maps toward fear. A score of 25 here "
+                   "does not mean a raw VIX level of 25."),
+            *current_forecasts(r),
+            html.H3("Which was closer after 2019?"),
+            html.P("Smaller forecast error is better. Errors below use percentage points (pp); "
+                   "RMSE is explained with an example just below the table."),
+            table(["Horizon", "What is forecast", "Dates compared", "Canadian error (RMSE)",
+                   "US VIX error (RMSE)", "Smaller error"], rows, numeric_columns=(2, 3, 4)),
+            html.H3("Reading the error: smaller is better"),
+            html.P("RMSE stands for root mean squared error. For each date, subtract the actual "
+                   "outcome from the forecast, square the miss, average all squared misses, then take "
+                   "the square root. It summarizes forecast misses and penalizes large misses more."),
+            html.P("For example, a +5% return forecast followed by a +2% return misses by 3 percentage "
+                   "points. If every miss were that size, RMSE would be 3 pp. An RMSE of 3 pp is "
+                   "better than 4 pp. It is not a return earned, a success rate, or an error in the "
+                   "0–100 sentiment score. Volatility errors also use percentage points."),
             example,
-            html.P("Each signal forecasts the historical mean outcome for its own quintile. Both sets of "
-                   "means use the same training dates and only outcomes completed by December 31, 2019. "
-                   "US VIX uses its own inverted trailing percentile, so high implied volatility ranks as fear."),
-            html.P("Dates compared counts the holdout dates on which both signals produced a forecast and "
-                   "the outcome had fully played out. Both errors are measured on exactly these dates, so "
-                   "neither signal is scored on a date the other lacks. Longer horizons have fewer dates "
-                   "because the final months of the holdout have not yet matured."),
-            html.P("Root mean squared error (RMSE) measures the typical size of a forecast miss and gives "
-                   "larger misses more weight. Both forecasts face exactly the same holdout dates for each "
-                   "target. Positive advantage means the Canadian index reduced RMSE, in percentage points."),
-            html.P("The Canadian index uses no US VIX data. When no Canadian volatility score is "
-                   "available, its other indicators share the weight. Overlapping forecast windows "
-                   "limit the interpretation of small differences.", className="muted"),
-            calibration_details(r), download("Download matched forecast errors (CSV)", "vix-comparison.csv")]
+            html.P("Dates compared includes only completed outcomes with both forecasts. A group with "
+                   "no training examples supplies no forecast; it is never assigned a zero return. "
+                   "Longer horizons lose the most recent, unfinished windows. Return and volatility "
+                   "are separate tests: winning one does not mean winning the other. Lower RMSE "
+                   "does not necessarily mean being closer on more days or earning a better portfolio return."),
+            html.P("This is a retrospective comparison. Historical revisions can change training "
+                   "averages, and overlapping windows limit what small differences establish. The "
+                   "Canadian index contains no US VIX data. Use Backtest for portfolio performance.",
+                   className="muted"),
+            download("Download matched forecast errors (CSV)", "vix-comparison.csv")]
 
 
 def backtest(r):
@@ -282,12 +347,11 @@ def research_page(view, r, manifest):
                           table(["Local source file", "Instrument / distributor", "Field", "Last source date",
                                  "Status"], source_rows),
                           html.P("The audit bundle includes dated source levels, component scores and weights, "
-                                 "quintiles, realized outcomes, forecasts, the trade ledger and source-file hashes. "
+                                 "sentiment groups, realized outcomes, forecasts, the trade ledger and source-file hashes. "
                                  "Join the files on date. Returns and volatility in the CSVs are decimals."),
-                          html.P("The current training data match the frozen calibration fingerprint."
-                                 if manifest["holdout"]["training_matches_freeze"] else
-                                 "The local training history differs from the frozen snapshot. "
-                                 "Forecasts continue to use the saved calibration."),
+                          html.P("Forecast averages use only outcomes completed by December 31, 2019. "
+                                 "Each rebuild records its training fingerprint and exact group means "
+                                 "in calibration.json. Changes to historical inputs can change these means."),
                           html.P([html.A("Bloomberg Canada Aggregate factsheet",
                                          href="https://assets.bbhub.io/professional/sites/27/Canada-Aggregate-Index.pdf"),
                                   " · ", html.A("Cboe daily VIX history",

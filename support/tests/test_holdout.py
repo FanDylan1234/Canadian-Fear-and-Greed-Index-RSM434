@@ -1,12 +1,11 @@
-import json
 import unittest
 
 import numpy as np
 import pandas as pd
 
 from index_engine.holdout import (
-    ALLOCATION, BASELINE, BENCHMARK_EQUITY, CALIBRATION_FILE, CUTOFF, HORIZONS, SWITCH_COST, episode_table,
-    evaluate, fit_calibration, forward_outcomes, quintiles, run_backtest,
+    ALLOCATION, BASELINE, BENCHMARK_EQUITY, CUTOFF, HORIZONS, SWITCH_COST, episode_table,
+    evaluate, fit_calibration, forward_outcomes, sentiment_groups, forecast_tables, run_backtest,
 )
 from index_engine.buildindicatorsfromdata import build_index
 from test_index import fixture
@@ -40,9 +39,25 @@ class HoldoutTests(unittest.TestCase):
             model = before["models"]["index"]["forecasts"]
             self.assertEqual(sum(row["n"] for row in model if row["months"] == m),
                              len(history.loc[:CUTOFF]) - h)
-        q = quintiles(pd.Series([24., 25., 50., 75., 90., np.nan]), [25, 50, 65, 75])
-        self.assertEqual(q.iloc[:5].tolist(), [1, 1, 2, 4, 5])
-        self.assertTrue(pd.isna(q.iloc[-1]))
+    def test_groups_match_methodology_at_decimal_boundaries(self):
+        values = pd.Series([0, 24, 24.999, 25, 44.999, 45, 55, 55.001, 75, 75.001, 100, np.nan])
+        expected = ["Extreme fear"] * 3 + ["Fear"] * 2 + ["Neutral"] * 2 + ["Greed"] * 2 + ["Extreme greed"] * 2
+        self.assertEqual(sentiment_groups(values).iloc[:-1].tolist(), expected)
+        self.assertTrue(pd.isna(sentiment_groups(values).iloc[-1]))
+
+    def test_unseen_training_groups_have_no_forecast(self):
+        dates = pd.bdate_range("2018-01-01", "2020-12-31")
+        history = pd.DataFrame({"index": 50., "vix_score": 20., "tsx_total_return": np.arange(len(dates)) + 100.}, index=dates)
+        calibration = fit_calibration(history)
+        history.loc[history.index > CUTOFF, "index"] = 80.
+        audit = history.join(forward_outcomes(history.tsx_total_return))
+        prediction, comparison = forecast_tables(audit, calibration)
+        self.assertTrue(audit.index_forecast_return_1m.isna().all())
+        self.assertTrue(comparison.n.eq(0).all())
+        self.assertTrue(comparison.index_rmse.isna().all())
+        self.assertGreater(prediction[prediction.sentiment == "Extreme greed"].n.sum(), 0)
+        self.assertEqual(prediction[prediction.sentiment != "Extreme greed"].n.sum(), 0)
+
 
     def test_sentiment_mix_versus_60_40_trades_at_next_joint_close(self):
         dates = pd.bdate_range("2020-01-02", periods=8)
@@ -87,7 +102,7 @@ class HoldoutTests(unittest.TestCase):
         self.assertEqual(e.fear_days.tolist(), [0, 0])
         self.assertTrue(e.first_fear.isna().all())
 
-    def test_matched_forecasts_and_separate_frozen_design(self):
+    def test_matched_forecasts_and_separate_baseline(self):
         inputs = fixture()
         inputs.index = pd.bdate_range("2017-01-02", periods=len(inputs))
         inputs.loc[inputs.index[-240:-225], "fred_vix"] = np.nan
@@ -97,7 +112,8 @@ class HoldoutTests(unittest.TestCase):
         r = evaluate(live, inputs, altered)
         pd.testing.assert_series_equal(r.audit["index"], frozen.history["index"])
         self.assertFalse(r.audit["index"].equals(live.history["index"]))
-        self.assertEqual(r.calibration, json.loads(CALIBRATION_FILE.read_text()))
+        self.assertEqual(r.calibration, fit_calibration(frozen.history))
+        pd.testing.assert_frame_equal(r.ledger, run_backtest(frozen.history)[0])
         for row in r.comparison.itertuples():
             cols = [f"{row.target}_{row.months}m", f"index_forecast_{row.target}_{row.months}m",
                     f"vix_score_forecast_{row.target}_{row.months}m"]

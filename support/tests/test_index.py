@@ -186,7 +186,7 @@ class DashboardTests(unittest.TestCase):
     def test_all_dashboard_callbacks(self):
         key = next(iter(self.app.callback_map))
         outputs = [{"id": name, "property": prop} for name, prop in [("page-content", "children"), ("status-banner", "children"), ("quote-strip", "children"), ("date-controls", "style"), ("refresh-button", "disabled"), ("render-key", "data")]]
-        for view in ("overview", "timeline", "data", "methodology"):
+        for view in ("overview", "timeline", "data", "methodology", "sandbox"):
             inputs = [{"id": name, "property": prop, "value": val} for name, prop, val in [("view", "value", view), ("ui-tick", "n_intervals", 0), ("refresh-button", "n_clicks", 0), ("date-range", "start_date", "2010-01-01"), ("date-range", "end_date", "2012-12-31"), ("weight-date", "date", "2011-01-01")]]
             response = self.client.post("/_dash-update-component", json={"output": key, "outputs": outputs, "inputs": inputs, "state": [{"id":"render-key","property":"data","value":None}], "changedPropIds": ["view.value"]})
             self.assertEqual(response.status_code, 200, response.data[:300])
@@ -210,6 +210,39 @@ class DashboardTests(unittest.TestCase):
             })
             self.assertEqual(unchanged.status_code, 200)
             self.assertNotIn("page-content", unchanged.json["response"])
+
+    def test_sandbox_callback_is_isolated_and_can_reset(self):
+        from index_engine.sandbox import COMPONENTS, INDICATORS
+        before = self.result.history.copy(deep=True)
+        key = next(key for key in self.app.callback_map if "custom-reading.children" in key)
+        callback = self.app.callback_map[key]
+        values = {"view": "sandbox", "ui-tick": 0, "custom-polls": None}
+        values.update({f"custom-use-{k}": [k] if k == "momentum" else [] for k in INDICATORS})
+        values.update({f"custom-weight-{k}": 1 for k in INDICATORS})
+        outputs = [{"id": "custom-reading", "property": "children"},
+                   {"id": "custom-render-key", "property": "data"}]
+        payload = {"output": key, "outputs": outputs,
+                   "inputs": [dict(item, value=values[item["id"]]) for item in callback["inputs"]],
+                   "state": [{"id": "custom-render-key", "property": "data", "value": None}],
+                   "changedPropIds": ["custom-use-credit.value"]}
+        response = self.client.post("/_dash-update-component", json=payload)
+        self.assertEqual(response.status_code, 200, response.data[:300])
+        self.assertIn("Your current reading", str(response.json))
+        self.assertIn("custom-gauge", str(response.json))
+        self.assertNotIn("page-content", response.json["response"])
+        pd.testing.assert_frame_equal(self.result.history, before)
+        reset_key = next(key for key in self.app.callback_map if "custom-use-momentum.value" in key)
+        reset = self.app.callback_map[reset_key]
+        response = self.client.post("/_dash-update-component", json={
+            "output": reset_key,
+            "outputs": [{"id": out.component_id, "property": out.component_property} for out in reset["output"]],
+            "inputs": [{"id": "custom-reset", "property": "n_clicks", "value": 1}],
+            "state": [], "changedPropIds": ["custom-reset.n_clicks"],
+        })
+        self.assertEqual(response.status_code, 200)
+        for k in INDICATORS:
+            self.assertEqual(response.json["response"][f"custom-use-{k}"]["value"], [k] if k in COMPONENTS else [])
+            self.assertEqual(response.json["response"][f"custom-weight-{k}"]["value"], 1)
 
 
 if __name__ == "__main__":

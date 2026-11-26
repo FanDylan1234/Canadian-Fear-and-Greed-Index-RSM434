@@ -77,5 +77,14 @@ Each tab now mounts a keyed page with distinct graph IDs. A browser-side visibil
 
 Put/call publication delays: the most recent valid calculated options score is carried forward into equal weighting. Raw ratios remain unfilled. The banner, options card, selected-date weights and exported `options_score_date` / `options_carried_forward` fields identify older observations. There is no carry before the first valid score; later observations never fill earlier dates. Historical values reflect this policy and may differ from earlier exports.
 
+## Build your index
+The tab to the right of Methodology lets you include/exclude indicators and set relative weights. It recalculates the current reading, previous readings and recent trend using your chosen mix. Available positive weights normalize to 100% on each date; at least one is needed. Controls stay in your browser session. Reset restores the seven equally weighted market indicators.
+
+The sandbox never changes the shared index, source files, downloads or research results. The published index continues to require at least five available components.
+
+Optional [Bloomberg/Nanos surveys](https://nanos.co/dataportal/nanos-bloomberg-tracking-methodology/) cover overall confidence, expectations, and personal finances/job security. Import published weekly history using the CSV template in the tab. These series overlap; they are optional experimental inputs, not proven TSX predictors. No licensed history is bundled or automatic survey feed assumed. Survey scores rank the current release against the prior 52 releases (26 required), enter on the next TSX session after publication, and expire after 14 calendar days. Uploads remain in memory for the current browser tab.
+
+Prediction and US VIX comparison use the Methodology sentiment bands, not historical quintiles. The VIX tab separates observed results from pre-2020-trained forecasts and reports forecast error in percentage points. Each build recalculates only the pre-2020 training means for these bands and exports the exact calibration. The backtest allocation and execution rules are unchanged.
+
 ## Repository layout
 The root keeps the launcher, README and repository-wide .gitignore. Python implementation lives in index_engine/. Supporting configuration, assets, documentation, tests and editor setup live in support/. The launcher reads support/requirements.txt. A reference copy of ignore rules is in support/.gitignore; Git requires the active repository-wide rules at the root.

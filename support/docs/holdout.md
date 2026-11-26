@@ -1,6 +1,6 @@
 # Holdout evaluation and audit guide
 
-The seven-indicator baseline uses the existing prior-session percentile ranks, Canadian-only volatility sources, options carry policy, and equal weights among at least five available components. The research settings are fixed in `index_engine/holdout.py`. A custom live configuration triggers a separate calculation with the frozen parameters. The exercise is retrospective. Its source files contain historical revisions, and the volatility replacement reflects the recorded VIXC/VIXI transition. There is no archived record of the design being specified in 2019 or of when every observation became available.
+The seven-indicator baseline uses the existing prior-session percentile ranks, Canadian-only volatility sources, options carry policy, and equal weights among at least five available components. The research settings are fixed in `index_engine/holdout.py`. A custom live configuration triggers a separate calculation with the baseline parameters. The exercise is retrospective. Its source files contain historical revisions, and the volatility replacement reflects the recorded VIXC/VIXI transition. There is no archived record of the design being specified in 2019 or of when every observation became available.
 
 ## Reproduce a result
 
@@ -8,11 +8,11 @@ Run `python runtostartindex.py --update` with the project's cached inputs. Open 
 
 | File in the archive | How to use it |
 |---|---|
-| manifest.json | Build timestamp, active configuration, raw-file SHA-256 hashes, actual Bloomberg securities and fields, VIX distributor when verified, coverage flags, frozen calibration checksum and calculation file hashes. Raw hashes refer to the original bytes in data-access-results/raw. |
-| calibration.json | Frozen research configuration, ordered components, training fingerprint, four score cutoffs per signal and 2010–2019 mean forecasts and counts for each quintile and horizon. The tracked original is support/config/holdout-calibration.json. |
+| manifest.json | Build timestamp, active configuration, raw-file SHA-256 hashes, actual Bloomberg securities and fields, VIX distributor when verified, coverage flags, calibration checksum and calculation file hashes. Raw hashes refer to the original bytes in data-access-results/raw. |
+| calibration.json | Research configuration, ordered components, training fingerprint, Methodology score bands and 2010–2019 mean forecasts and counts for each sentiment and horizon. This is the exact calibration used for this build. |
 | source-levels.csv | Parsed, validated source fields aligned to observed TSX price dates, including pre-2010 scoring warmup. Column names correspond to local source filenames. Excluded definitions and missing observations stay blank. |
-| observations.csv | One row per TSX close. Includes training/holdout flag, index, seven scores and weights, options source date, volatility source, VIX level and score, return benchmarks, quintiles, actual outcomes, end dates and holdout forecasts. |
-| predictions.csv | Holdout sample counts, mean TSX total return and mean annualized volatility by index quintile and horizon. |
+| observations.csv | One row per TSX close. Includes training/holdout flag, index, seven scores and weights, options source date, volatility source, VIX level and score, return benchmarks, sentiment groups, actual outcomes, end dates and holdout forecasts. |
+| predictions.csv | Holdout sample counts, mean TSX total return and mean annualized volatility by index sentiment and horizon. |
 | episodes.csv | Date windows, scored and extreme-fear counts, first breach, minimum and first date at the minimum. |
 | vix-comparison.csv | Paired counts and forecast RMSE for each target and horizon. Advantage equals VIX RMSE minus Canadian-index RMSE. The index_closer_days column counts individual dates where the Canadian forecast had a smaller absolute error. |
 | backtest-ledger.csv | One row per joint close, with signal date, score and regime, equity weights during the preceding interval and after execution, allocation changes, asset returns, turnover, costs and wealth paths for the sentiment strategy, the 60/40 benchmark and both single assets. |
@@ -20,24 +20,42 @@ Run `python runtostartindex.py --update` with the project's cached inputs. Open 
 
 ## Signals, outcomes and comparison
 
-Trading sessions are observed TSX price dates. Each signal's four quintile boundaries are linearly interpolated 20th, 40th, 60th and 80th percentiles of its available 2010–2019 scores. Boundary ties go to the lower quintile. US VIX is independently scored as 100 minus its prior-window percentile. Forecast training uses the intersection of available index and VIX dates for each horizon and the same TSX outcome. The calibration calculation takes a history ending December 31, 2019 before it constructs forward labels. A normal rebuild reads the saved calibration and never fits to new data. The manifest reports if today's training inputs differ from the frozen fingerprint.
+Trading sessions are observed TSX price dates. Both signals use the exact Methodology score bands, classified before display rounding:
 
-To independently rebuild the calibration with the installed project interpreter, run the following at the repository root. This prints the derived settings and compares the cutoffs and forecasts with the saved file.
+| Sentiment | Score |
+|---|---|
+| Extreme fear | 0 ≤ score < 25 |
+| Fear | 25 ≤ score < 45 |
+| Neutral | 45 ≤ score ≤ 55 |
+| Greed | 55 < score ≤ 75 |
+| Extreme greed | 75 < score ≤ 100 |
+
+These are score intervals, not equal-sized samples. US VIX is independently scored as 100 minus its prior-window percentile, so high raw VIX tends toward fear. The bands apply to that score, not to the raw VIX level.
+
+Forecast training uses the intersection of available Canadian-index and VIX dates for each horizon and the same TSX outcome. The calibration calculation ends the training history on December 31, 2019 **before** constructing forward labels. Only outcomes fully completed by that date contribute. For each signal, group and horizon, the forecast is that group's historical mean. An empty training group has no forecast, never a zero forecast. Neither the group means nor the score intervals are tuned using 2020-onward outcomes.
+
+Each build recalculates the means from its local pre-2020 history and includes them in `calibration.json` in the archive. Source revisions can change those means. This replaces the former saved quintile calibration, which is incompatible with score-based groups. The manifest records the actual calibration checksum and training fingerprint; preserve the archive to reproduce a particular build.
+
+To independently check a build against the same local inputs:
 
 ```python
 import json
-from index_engine.holdout import BASELINE, CUTOFF, CALIBRATION_FILE, build_index, fit_calibration
+from zipfile import ZipFile
+from index_engine.holdout import BASELINE, CUTOFF, build_index, fit_calibration
 from index_engine.loadpulleddata import ROOT, read_inputs
 
 inputs, _ = read_inputs(ROOT / "data-access-results/raw", BASELINE)
 trained = fit_calibration(build_index(inputs.loc[:CUTOFF], BASELINE).history)
-saved = json.loads(CALIBRATION_FILE.read_text(encoding="utf-8"))
+with ZipFile(ROOT / "index-results/holdout-audit.zip") as archive:
+    saved = json.loads(archive.read("calibration.json"))
 print(trained["train_sha256"], trained["models"] == saved["models"])
 ```
 
-For a prediction row, select `period=holdout` and the chosen `index_quintile` in observations.csv. A 1-, 3-, or 6-month horizon uses 21, 63, or 126 TSX sessions. For example, `return_1m` equals the TSX gross total-return level on `end_1m` divided by the signal-date level, less one. For `vol_1m`, take the 21 successive daily simple returns ending on that date, compute their sample standard deviation (ddof=1), and multiply by the square root of 252. A missing level in the path or an unfinished horizon leaves both outcomes blank. Average the nonblank outcomes and count the corresponding starting dates. All return, volatility, cost and error fields are decimals. Multiply by 100 to read them as percentages or percentage-point differences.
+For a prediction row, select `period=holdout` and the chosen `index_sentiment` in observations.csv. A 1-, 3-, or 6-month horizon uses 21, 63, or 126 TSX sessions. For example, `return_1m` equals the TSX gross total-return level on `end_1m` divided by the signal-date level, less one. For `vol_1m`, take the 21 successive daily simple returns ending on that date, compute their sample standard deviation (ddof=1), and multiply by the square root of 252. A missing level in the path or an unfinished horizon leaves both outcomes blank. Average the nonblank outcomes and count the corresponding starting dates. All return, volatility, cost and error fields are decimals. Multiply by 100 to read them as percentages or percentage-point differences.
 
-For a comparison row, keep the dates with an observed outcome and both forecasts. For each signal take the square root of the mean squared forecast-minus-actual difference. Compare these errors on the identical dates. Success means lower holdout RMSE. Daily forward windows overlap. Counts describe observations and the analysis makes no statistical significance claim. The Canadian index contains no US VIX data: when no Canadian volatility score exists, that component is excluded and the others are reweighted equally.
+Prediction describes observed 2020-onward averages. The hypothesis is that Extreme fear precedes higher average returns than Fear, then Neutral, Greed and Extreme greed. The dashboard reports whether this ordering holds at each horizon; it does not impose the ordering on either observed results or forecasts.
+
+For a comparison row, keep the dates with an observed outcome and both forecasts. For each signal take the square root of the mean squared forecast-minus-actual difference. Compare these errors on the identical dates. Success means lower holdout RMSE. A +5% forecast followed by +2% actual return misses by 3 percentage points. If all misses were that size, RMSE would be 3 pp. RMSE is not an investment return or a win rate. Return and volatility forecasts are evaluated separately. Daily forward windows overlap. Counts describe observations and the analysis makes no statistical significance claim. The Canadian index contains no US VIX data: when no Canadian volatility score exists, that component is excluded and the others are reweighted equally.
 
 For an episode, select March 1–31, 2020 or January 1–December 31, 2022 in observations.csv. Count scores strictly below 25 and divide by the count of valid scores. Read the first qualifying date and the first occurrence of the minimum directly from those rows.
 

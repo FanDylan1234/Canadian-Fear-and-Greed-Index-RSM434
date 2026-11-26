@@ -8,6 +8,14 @@ import pandas as pd
 if TYPE_CHECKING:
     from .holdout import Research
 
+SENTIMENT_RANGES = {
+    "Extreme fear": "0 to below 25",
+    "Fear": "25 to below 45",
+    "Neutral": "45 to 55",
+    "Greed": "Above 55 to 75",
+    "Extreme greed": "Above 75 to 100",
+}
+
 COMPONENTS = {
     "momentum": (
         "Market momentum",

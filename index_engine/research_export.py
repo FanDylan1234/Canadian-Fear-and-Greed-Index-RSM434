@@ -5,7 +5,6 @@ from io import BytesIO
 from zipfile import ZipFile, ZIP_DEFLATED
 
 from .loadpulleddata import ROOT
-from .holdout import CALIBRATION_FILE
 
 
 def audit_bundle(research, manifest):
@@ -23,7 +22,7 @@ def audit_bundle(research, manifest):
         for name, frame in reports.items():
             dated = name in {"observations.csv", "source-levels.csv", "backtest-ledger.csv"}
             archive.writestr(name, frame.to_csv(index=dated, index_label="date", lineterminator="\n"))
-        archive.write(CALIBRATION_FILE, "calibration.json")
+        archive.writestr("calibration.json", json.dumps(research.calibration, indent=2))
         archive.writestr("manifest.json", json.dumps(manifest, indent=2))
         archive.write(ROOT / "support" / "docs" / "holdout.md", "README.md")
     return buffer.getvalue()

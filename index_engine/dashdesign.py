@@ -10,7 +10,7 @@ import pandas as pd
 from dash import Dash, Input, Output, State, ctx, dcc, html, no_update
 from flask import abort, send_file
 from index_engine.loadpulleddata import ROOT
-from index_engine.buildindicatorsfromdata import COMPONENTS, regime
+from index_engine.buildindicatorsfromdata import COMPONENTS, SENTIMENT_RANGES, regime
 from index_engine.chartsdesign import gauge, history_chart, recent_trend, signal_chart, weights_chart, color
 from index_engine.service import DashboardService
 from index_engine.dashboard_components import table
@@ -56,6 +56,33 @@ def comparison(history):
     return html.Section([html.H2("Previous readings"), *rows], className="comparisons")
 
 
+def reading_summary(history, prefix="overview", title="Current reading"):
+    latest = history.iloc[-1]
+    return html.Div(
+        [
+            html.Section([
+                html.Div([html.H2(title),
+                          html.Time(f"{history.index[-1]:%b %d, %Y}",
+                                    dateTime=history.index[-1].date().isoformat())],
+                         className="reading-heading"),
+                html.Div([
+                    html.Div([html.Div([html.Strong(f"{latest['index']:.0f}" if pd.notna(latest["index"]) else "—"),
+                                       html.Span(" / 100")], className="index-score"),
+                              score_badge(latest["index"])], className="reading-value"),
+                    dcc.Graph(id=f"{prefix}-gauge", figure=gauge(latest["index"]), config=GRAPH_CONFIG,
+                              responsive=True, style={"height": "168px"}),
+                ], className="reading-body"),
+                html.Div([html.Span("Past 3 months"),
+                          dcc.Graph(id=f"{prefix}-trend", figure=recent_trend(history),
+                                    config=GRAPH_CONFIG, responsive=True, style={"height": "46px"})],
+                         className="reading-trend"),
+            ], className="reading-panel"),
+            comparison(history),
+        ],
+        className="overview-grid",
+    )
+
+
 def overview(result):
     history = result.history
     latest = history.iloc[-1]
@@ -99,29 +126,7 @@ def overview(result):
             )
         )
     return [
-        html.Div(
-            [
-                html.Section([
-                    html.Div([html.H2("Current reading"),
-                              html.Time(f"{history.index[-1]:%b %d, %Y}",
-                                        dateTime=history.index[-1].date().isoformat())],
-                             className="reading-heading"),
-                    html.Div([
-                        html.Div([html.Div([html.Strong(f"{latest['index']:.0f}" if pd.notna(latest["index"]) else "—"),
-                                           html.Span(" / 100")], className="index-score"),
-                                  score_badge(latest["index"])], className="reading-value"),
-                        dcc.Graph(id="overview-gauge", figure=gauge(latest["index"]), config=GRAPH_CONFIG,
-                                  responsive=True, style={"height": "168px"}),
-                    ], className="reading-body"),
-                    html.Div([html.Span("Past 3 months"),
-                              dcc.Graph(id="overview-trend", figure=recent_trend(history),
-                                        config=GRAPH_CONFIG, responsive=True, style={"height": "46px"})],
-                             className="reading-trend"),
-                ], className="reading-panel"),
-                comparison(history),
-            ],
-            className="overview-grid",
-        ),
+        reading_summary(history),
         html.Div(
             [
                 html.Div([html.H2("Market indicators"),
@@ -252,13 +257,7 @@ def methodology(config):
         ),
         table(
             ["Score", "Sentiment"],
-            [
-                ["0\u201324", "Extreme fear"],
-                ["25\u201344", "Fear"],
-                ["45\u201355", "Neutral"],
-                ["Above 55\u201375", "Greed"],
-                ["Above 75", "Extreme greed"],
-            ],
+            [[score_range, label] for label, score_range in SENTIMENT_RANGES.items()],
         ),
         html.H3("Equal weights"),
         html.P(
@@ -313,6 +312,8 @@ def create_app(offline=False, start_worker=False, service=None):
         title="Canadian Fear & Greed Index",
         update_title=None,
     )
+    from index_engine.sandbox_views import sandbox_layout, register_sandbox
+
     app.service = service
     result, _, _, _, _, _ = service.snapshot()
     latest = (
@@ -371,6 +372,7 @@ def create_app(offline=False, start_worker=False, service=None):
                                 *[(label, value) for value, label in RESEARCH_TABS.items()],
                                 ("Data & weights", "data"),
                                 ("Methodology", "methodology"),
+                                ("Build your index", "sandbox"),
                             ]
                         ],
                     ), **{"aria-label": "Dashboard views"}),
@@ -407,6 +409,7 @@ def create_app(offline=False, start_worker=False, service=None):
                         className="date-controls",
                     ),
                     html.Div(id="page-content", className="overview"),
+                    sandbox_layout(),
                     html.Div(id="quote-strip"),
                     html.Footer(
                         [
@@ -508,6 +511,7 @@ def create_app(offline=False, start_worker=False, service=None):
                     "timeline": lambda: timeline(result, start, end),
                     "data": lambda: coverage_view(result, manifest, selected_date),
                     "methodology": lambda: methodology(service.config),
+                    "sandbox": lambda: [],
                 }[view]()
             content = html.Div(content, key=view, **{"data-view": view})
         return content, banner, (no_update if render_key == previous_key else quote_content), controls, busy, render_key
@@ -545,6 +549,8 @@ def create_app(offline=False, start_worker=False, service=None):
         if not path.exists():
             abort(404)
         return send_file(path, as_attachment=True, download_name="canadian-fg-" + name)
+
+    register_sandbox(app, service, reading_summary)
 
     if start_worker:
         service.start()

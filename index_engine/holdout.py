@@ -1,14 +1,12 @@
-"""Frozen baseline, supervised calibration, and chronological holdout evaluation."""
+"""Baseline sentiment bands, pre-2020 forecasts, and chronological evaluation."""
 
 from dataclasses import dataclass
 import hashlib
-import json
 
 import numpy as np
 import pandas as pd
 
-from .buildindicatorsfromdata import COMPONENTS, build_index, regime
-from .loadpulleddata import ROOT
+from .buildindicatorsfromdata import COMPONENTS, SENTIMENT_RANGES, build_index, regime
 
 
 CUTOFF = pd.Timestamp("2019-12-31")
@@ -19,7 +17,6 @@ BASELINE = {
     "rank_window": 252, "rank_min_history": 126, "minimum_components": 5,
     "breadth_enabled": True, "display_start": "2010-01-01",
 }
-CALIBRATION_FILE = ROOT / "support" / "config" / "holdout-calibration.json"
 # Cost per unit of portfolio moved between equities and bonds: 5 bp on each leg.
 SWITCH_COST = 0.001
 BENCHMARK_EQUITY = 0.6
@@ -48,10 +45,9 @@ def forward_outcomes(levels):
     return out
 
 
-def quintiles(scores, cuts):
-    # Exact ties go to the lower bin. Also works for repeated breakpoints.
-    values = np.searchsorted(cuts, scores.to_numpy(dtype=float), side="left") + 1
-    return pd.Series(values, index=scores.index).where(scores.notna()).astype("Int64")
+def sentiment_groups(scores):
+    """Use the same exact decimal boundaries as the overview and backtest."""
+    return scores.map(regime).where(scores.notna())
 
 
 def training_fingerprint(train):
@@ -67,21 +63,19 @@ def fit_calibration(history):
     models = {}
     for signal in SIGNALS:
         scores = train[signal].dropna()
-        if scores.nunique() < 5:
-            raise ValueError(f"Insufficient pre-2020 calibration history for {signal}")
-        cuts = scores.quantile([0.2, 0.4, 0.6, 0.8]).tolist()
-        bins = quintiles(train[signal], cuts)
+        bins = sentiment_groups(train[signal])
         means = []
         for months in HORIZONS:
             ret, vol = f"return_{months}m", f"vol_{months}m"
-            for q in range(1, 6):
-                rows = outcomes.loc[matched & bins.eq(q), [ret, vol]].dropna()
-                means.append(dict(months=months, quintile=q, n=len(rows),
+            for group in SENTIMENT_RANGES:
+                rows = outcomes.loc[matched & bins.eq(group), [ret, vol]].dropna()
+                means.append(dict(months=months, sentiment=group, n=len(rows),
                                   mean_return=rows[ret].mean() if len(rows) else None,
                                   mean_vol=rows[vol].mean() if len(rows) else None))
-        models[signal] = dict(cuts=cuts, score_count=len(scores), forecasts=means)
-    return dict(design="baseline-v2-2026-11-25", settings=BASELINE,
-                components=list(COMPONENTS), training_first=train.index[0].date().isoformat(),
+        models[signal] = dict(score_count=len(scores), forecasts=means)
+    return dict(design="sentiment-bands-v3-2026-11-26", settings=BASELINE,
+                sentiment_ranges=SENTIMENT_RANGES,
+                components=list(COMPONENTS), training_first=train.index[0].date().isoformat() if len(train) else None,
                 train_end=CUTOFF.date().isoformat(), train_sha256=training_fingerprint(train),
                 sessions_per_horizon=HORIZONS, models=models)
 
@@ -90,22 +84,22 @@ def forecast_tables(audit, calibration):
     predictions, comparisons = [], []
     hold = audit.index > CUTOFF
     for signal in SIGNALS:
-        audit[f"{signal}_quintile"] = quintiles(audit[signal], calibration["models"][signal]["cuts"])
-    bins = audit["index_quintile"]
+        audit[f"{signal}_sentiment"] = sentiment_groups(audit[signal])
+    bins = audit["index_sentiment"]
     for months in HORIZONS:
         ret, vol = f"return_{months}m", f"vol_{months}m"
-        for q in range(1, 6):
-            group = audit.loc[hold & bins.eq(q), [ret, vol]].dropna()
-            predictions.append(dict(months=months, quintile=q, n=len(group),
+        for sentiment in SENTIMENT_RANGES:
+            group = audit.loc[hold & bins.eq(sentiment), [ret, vol]].dropna()
+            predictions.append(dict(months=months, sentiment=sentiment, n=len(group),
                                     mean_return=group[ret].mean(), mean_vol=group[vol].mean()))
         for target in TARGETS:
             actual = audit[f"{target}_{months}m"]
             forecasts = {}
             for signal in SIGNALS:
                 model = calibration["models"][signal]["forecasts"]
-                mapping = {r["quintile"]: r[f"mean_{target}"] for r in model if r["months"] == months}
+                mapping = {r["sentiment"]: r[f"mean_{target}"] for r in model if r["months"] == months}
                 col = f"{signal}_forecast_{target}_{months}m"
-                audit[col] = audit[f"{signal}_quintile"].map(mapping).astype(float).where(hold)
+                audit[col] = audit[f"{signal}_sentiment"].map(mapping).astype(float).where(hold)
                 forecasts[signal] = audit[col]
             paired = hold & actual.notna() & forecasts["index"].notna() & forecasts["vix_score"].notna()
             index_error = (forecasts["index"][paired] - actual[paired]).abs()
@@ -201,12 +195,12 @@ class Research:
 
 
 def evaluate(result, inputs, live_config):
-    calibration = json.loads(CALIBRATION_FILE.read_text(encoding="utf-8"))
-    if calibration["settings"] != BASELINE or calibration["components"] != list(COMPONENTS):
-        raise ValueError("Frozen design and calibration disagree")
     if any(live_config.get(k) != v for k, v in BASELINE.items()):
         result = build_index(inputs, BASELINE)
     history = result.history
+    # Rebuild the group means from local training history, never from holdout outcomes.
+    # The former saved quintile means cannot be reused with methodology score bands.
+    calibration = fit_calibration(history)
     audit = history.join(result.scores.add_prefix("score_")).join(result.weights.add_prefix("weight_"))
     audit["us_vix_close"] = result.inputs["fred_vix"]
     audit["period"] = np.where(audit.index <= CUTOFF, "training", "holdout")

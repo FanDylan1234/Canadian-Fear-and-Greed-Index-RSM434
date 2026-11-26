@@ -1,7 +1,10 @@
 import tempfile
 import unittest
+import hashlib
+import json
 from pathlib import Path
 from unittest.mock import patch
+from zipfile import ZipFile
 import pandas as pd
 from test_index import fixture
 from index_engine.loadpulleddata import load_config, read_inputs
@@ -44,9 +47,16 @@ class StartupAndDateTests(unittest.TestCase):
             inputs, _ = read_inputs(raw, load_config())
             self.assertIsInstance(inputs.index, pd.DatetimeIndex)
             with patch('index_engine.data_checks.yesterday', return_value='2012-12-30'):
-                result, _ = build(raw, Path(folder) / 'output')
+                result, manifest = build(raw, Path(folder) / 'output')
             self.assertLessEqual(result.history.index.max(), pd.Timestamp('2012-12-30'))
             self.assertTrue((Path(folder) / 'output/history.csv').exists())
+            with ZipFile(Path(folder) / 'output/holdout-audit.zip') as archive:
+                calibration = archive.read('calibration.json')
+                self.assertEqual(hashlib.sha256(calibration).hexdigest(), manifest['holdout']['calibration_sha256'])
+                self.assertEqual(json.loads(calibration)['models'], result.research.calibration['models'])
+                exported = pd.read_csv(archive.open('observations.csv'))
+                self.assertIn('index_sentiment', exported)
+                self.assertNotIn('index_quintile', exported)
 
     def test_launcher_selects_task_and_forwards_options(self):
         for arguments, module, remaining in [
