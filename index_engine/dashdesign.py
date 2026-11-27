@@ -306,10 +306,11 @@ def quote_details(quotes, error):
     )
 
 
-def create_app(offline=False, start_worker=False, service=None):
+def create_app(offline=False, start_worker=False, service=None, server=None):
     service = service or DashboardService(offline=offline)
     app = Dash(
         __name__,
+        server=server if server is not None else True,
         assets_folder=str(ROOT / "support" / "assets"),
         title="Canadian Fear & Greed Index",
         update_title=None,
