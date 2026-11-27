@@ -1,2 +1,16 @@
+[project]
+name = "canadian-fear-and-greed-index"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+  "dash>=3.0,<4",
+  "flask>=2.2,<3.2",
+  "plotly>=6.0,<7",
+  "pandas>=2.2,<3",
+  "numpy>=1.26,<3",
+  "tzdata>=2025.1",
+  "packaging>=24,<27",
+]
+
 [tool.vercel]
 entrypoint = "app:app"
