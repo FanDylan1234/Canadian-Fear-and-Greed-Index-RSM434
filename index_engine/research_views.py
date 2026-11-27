@@ -55,26 +55,37 @@ def return_pattern(r):
 
 
 def band_forecasts(r):
-    forecasts = {
-        (signal, row["months"], row["sentiment"]): row
-        for signal, model in r.calibration["models"].items()
-        for row in model["forecasts"]
+    def forecast_table(signal, band_labels, band_header):
+        forecasts = {(row["months"], row["sentiment"]): row
+                     for row in r.calibration["models"][signal]["forecasts"]}
+        rows = []
+        for months in HORIZONS:
+            for sentiment, label in band_labels.items():
+                row = forecasts[months, sentiment]
+                rows.append([f"{months}m", sentiment, label,
+                             pct(row["mean_return"]), pct(row["mean_vol"])])
+        return table(["Horizon", "Sentiment", band_header, "TSX total return forecast",
+                      "Annualized TSX volatility forecast"], rows, numeric_columns=(3, 4))
+
+    # The VIX sentiment score is 100 minus the raw VIX percentile.
+    vix_percentiles = {
+        "Extreme fear": "Above 75th (highest VIX readings)",
+        "Fear": "Above 55th through 75th",
+        "Neutral": "45th through 55th",
+        "Greed": "25th to below 45th",
+        "Extreme greed": "Below 25th (lowest VIX readings)",
     }
-    rows = []
-    for months in HORIZONS:
-        for band, score_range in SENTIMENT_RANGES.items():
-            canadian = forecasts["index", months, band]
-            vix = forecasts["vix_score", months, band]
-            rows.append([f"{months}m", band, score_range,
-                         pct(canadian["mean_return"]), pct(vix["mean_return"]),
-                         pct(canadian["mean_vol"]), pct(vix["mean_vol"])])
     return html.Div([
         html.H3("TSX forecasts by sentiment band"),
-        html.P("Each forecast is the 2010–2019 average for dates when that signal was in the band. "
-               "From 2020 onward, each signal selects its own band for the day. "
-               "Volatility is annualized. A dash means the band had no training observations."),
-        table(["Horizon", "Sentiment", "Score range", "Canadian return forecast", "US VIX return forecast",
-               "Canadian volatility forecast", "US VIX volatility forecast"], rows, numeric_columns=(3, 4, 5, 6)),
+        html.P("Each forecast is the 2010–2019 average TSX outcome following that signal's "
+               "band. A dash means the band had no training observations."),
+        html.H4("Canadian Fear & Greed Index"),
+        forecast_table("index", SENTIMENT_RANGES, "Canadian index score (0–100)"),
+        html.H4("US VIX"),
+        html.P("The percentile ranks the daily VIX level against its own history over the "
+               "prior 252 TSX sessions. A VIX at the 90th percentile scores 10 on the "
+               "sentiment scale (100 minus 90), placing it in Extreme fear."),
+        forecast_table("vix_score", vix_percentiles, "US VIX level (historical percentile)"),
     ])
 
 
