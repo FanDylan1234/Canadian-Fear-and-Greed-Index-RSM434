@@ -54,6 +54,30 @@ def return_pattern(r):
     return table(["Horizon", "Does more fear consistently precede a higher return?"], rows)
 
 
+def band_forecasts(r):
+    forecasts = {
+        (signal, row["months"], row["sentiment"]): row
+        for signal, model in r.calibration["models"].items()
+        for row in model["forecasts"]
+    }
+    rows = []
+    for months in HORIZONS:
+        for band, score_range in SENTIMENT_RANGES.items():
+            canadian = forecasts["index", months, band]
+            vix = forecasts["vix_score", months, band]
+            rows.append([f"{months}m", band, score_range,
+                         pct(canadian["mean_return"]), pct(vix["mean_return"]),
+                         pct(canadian["mean_vol"]), pct(vix["mean_vol"])])
+    return html.Div([
+        html.H3("TSX forecasts by sentiment band"),
+        html.P("Each forecast is the 2010–2019 average for dates when that signal was in the band. "
+               "From 2020 onward, each signal selects its own band for the day. "
+               "Volatility is annualized. A dash means the band had no training observations."),
+        table(["Horizon", "Sentiment", "Score range", "Canadian return forecast", "US VIX return forecast",
+               "Canadian volatility forecast", "US VIX volatility forecast"], rows, numeric_columns=(3, 4, 5, 6)),
+    ])
+
+
 def prediction(r):
     summary = r.prediction.set_index(["sentiment", "months"])
     fig = go.Figure()
@@ -105,6 +129,7 @@ def prediction(r):
                    "independent examples. Small groups are less reliable.", className="muted"),
             html.P("The US VIX comparison tab asks a separate question: using only pre-2020 examples "
                    "to make forecasts, which signal was closer to the actual TSX outcomes after 2019?"),
+            band_forecasts(r),
             download("Download daily scores and forward outcomes (CSV)", "observations.csv")]
 
 
@@ -192,6 +217,7 @@ def vix_comparison(r):
                    "High US VIX means more expected turbulence. Its score reverses its rank against "
                    "prior observations, so unusually high VIX maps toward fear. A score of 25 here "
                    "does not mean a raw VIX level of 25."),
+            band_forecasts(r),
             html.H3("Which was closer after 2019?"),
             html.P("Smaller forecast error is better. Errors below use percentage points (pp); "
                    "RMSE is explained with an example just below the table."),
