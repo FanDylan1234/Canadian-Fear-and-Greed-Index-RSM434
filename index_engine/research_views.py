@@ -74,6 +74,41 @@ def current_forecasts(r):
                    "Ann. volatility forecast", "Training days"], rows, numeric_columns=(1, 4, 5, 6))]
 
 
+def band_forecasts(r):
+    def forecast_table(signal, band_labels, band_header):
+        forecasts = {(row["months"], row["sentiment"]): row
+                     for row in r.calibration["models"][signal]["forecasts"]}
+        rows = []
+        for months in HORIZONS:
+            for sentiment, label in band_labels.items():
+                row = forecasts[months, sentiment]
+                rows.append([f"{months}m", sentiment, label,
+                             pct(row["mean_return"]), pct(row["mean_vol"])])
+        return table(["Horizon", "Sentiment", band_header, "TSX total return forecast",
+                      "Annualized TSX volatility forecast"], rows, numeric_columns=(3, 4))
+
+    # The VIX sentiment score is 100 minus the raw VIX percentile.
+    vix_percentiles = {
+        "Extreme fear": "Above 75th (highest VIX readings)",
+        "Fear": "Above 55th through 75th",
+        "Neutral": "45th through 55th",
+        "Greed": "25th to below 45th",
+        "Extreme greed": "Below 25th (lowest VIX readings)",
+    }
+    return html.Div([
+        html.H3("TSX forecasts by sentiment band"),
+        html.P("Each forecast is the 2010–2019 average TSX outcome following that signal's "
+               "band. A dash means the band had no training observations."),
+        html.H4("Canadian Fear & Greed Index"),
+        forecast_table("index", SENTIMENT_RANGES, "Canadian index score (0–100)"),
+        html.H4("US VIX"),
+        html.P("The percentile ranks the daily VIX level against its own history over the "
+               "prior 252 TSX sessions. A VIX at the 90th percentile scores 10 on the "
+               "sentiment scale (100 minus 90), placing it in Extreme fear."),
+        forecast_table("vix_score", vix_percentiles, "US VIX level (historical percentile)"),
+    ])
+
+
 def prediction(r):
     summary = r.prediction.set_index(["sentiment", "months"])
     fig = go.Figure()
@@ -125,6 +160,7 @@ def prediction(r):
                    "independent examples. Small groups are less reliable.", className="muted"),
             html.P("The US VIX comparison tab asks a separate question: using only pre-2020 examples "
                    "to make forecasts, which signal was closer to the actual TSX outcomes after 2019?"),
+            band_forecasts(r),
             download("Download daily scores and forward outcomes (CSV)", "observations.csv")]
 
 
@@ -213,6 +249,7 @@ def vix_comparison(r):
                    "prior observations, so unusually high VIX maps toward fear. A score of 25 here "
                    "does not mean a raw VIX level of 25."),
             *current_forecasts(r),
+            band_forecasts(r),
             html.H3("Which was closer after 2019?"),
             html.P("Smaller forecast error is better. Errors below use percentage points (pp); "
                    "RMSE is explained with an example just below the table."),
