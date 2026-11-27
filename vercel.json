@@ -1,15 +1,4 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "builds": [
-    {
-      "src": "api/index.py",
-      "use": "@vercel/python",
-      "config": {
-        "includeFiles": "{demo/snapshot.zip,support/assets/**,support/config/**}"
-      }
-    }
-  ],
-  "routes": [
-    { "src": "/(.*)", "dest": "api/index.py" }
-  ]
+  "buildCommand": "python -m index_engine.frozen_snapshot --check"
 }
